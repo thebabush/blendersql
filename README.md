@@ -12,6 +12,7 @@ BlenderSQL is a Blender add-on that exposes `bpy.data` as live SQLite virtual ta
 - **Read *and* write.** 11 of the 75 tables accept `INSERT`/`UPDATE`/`DELETE` (objects, materials, modifiers, constraints, keyframes, f-curves, GP layers, GP strokes, custom properties, node inputs, GP material settings). Every write goes through `bpy.ops.ed.undo_push` — it's undoable in the UI.
 - **Verbs for the rest.** 25 typed SQL functions cover the things that aren't a row edit: `add_object`, `add_modifier`, `set_keyframe`, `build_node_tree`, `gp_add_stroke`, `render_object`, `purge_orphans`, `save`/`load`, import/export, … Each returns a JSON envelope and is logged to the `session_log` table.
 - **Headless, GUI, or both.** Run a `.blend` through the standalone `blendersql` CLI, or enable the add-on in a running Blender and curl its HTTP server, or let your coding agent orchestrate either.
+- **No MCP, no SDK.** Any client that can POST a string can drive it. The HTTP `/query` endpoint *is* the protocol.
 
 ## How It Works
 
@@ -216,9 +217,9 @@ make build      # build the platform extension zips into dist/
 
 Heavy inspiration from [**idasql**](https://github.com/allthingsida/idasql) by [Elias Bachaalany (@0xeb)](https://github.com/0xeb) — the project that pioneered exposing a host application's internal data model as live SQL virtual tables so any agent can query and edit it. I'm a heavy idasql user myself and consider it a game-changer for reverse engineering — if that's your space, go look. BlenderSQL applies the same idea to Blender, independently implemented in Python on [apsw](https://rogerbinns.github.io/apsw/). Big thanks to Elias.
 
-## Vibecoded
+## Disclosure
 
-Heads up — most of this code was written by Claude Code under my direction. I drove the design, reviewed every change, and the test/mypy/pre-commit setup is there so vibes don't ship. Read the diff before you trust it.
+This project is mostly vibecoded, and I mostly use it for my Grease Pencil / 2D Animation, so beware.
 
 ## License
 
