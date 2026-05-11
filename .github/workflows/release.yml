@@ -23,9 +23,9 @@ jobs:
       - name: Install Blender
         run: |
           url="https://download.blender.org/release/Blender5.1/${BLENDER_DIR}.tar.xz"
-          curl -fsSL "$url" -o blender.tar.xz
-          tar -xf blender.tar.xz
-          echo "$PWD/${BLENDER_DIR}" >> "$GITHUB_PATH"
+          curl -fsSL "$url" -o "$RUNNER_TEMP/blender.tar.xz"
+          tar -xf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/${BLENDER_DIR}" >> "$GITHUB_PATH"
 
       - name: Fetch wheels
         run: python scripts/fetch_wheels.py
