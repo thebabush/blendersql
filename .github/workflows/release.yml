@@ -31,7 +31,9 @@ jobs:
         run: python scripts/fetch_wheels.py
 
       - name: Build extension
-        run: blender --command extension build --split-platforms --output-dir dist/
+        run: |
+          mkdir -p dist
+          blender --command extension build --split-platforms --output-dir dist/
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
