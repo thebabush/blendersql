@@ -216,6 +216,10 @@ make build      # build the platform extension zips into dist/
 
 Heavy inspiration from [**idasql**](https://github.com/allthingsida/idasql) by [Elias Bachaalany (@0xeb)](https://github.com/0xeb) — the project that pioneered exposing a host application's internal data model as live SQL virtual tables so any agent can query and edit it. I'm a heavy idasql user myself and consider it a game-changer for reverse engineering — if that's your space, go look. BlenderSQL applies the same idea to Blender, independently implemented in Python on [apsw](https://rogerbinns.github.io/apsw/). Big thanks to Elias.
 
+## Vibecoded
+
+Heads up — most of this code was written by Claude Code under my direction. I drove the design, reviewed every change, and the test/mypy/pre-commit setup is there so vibes don't ship. Read the diff before you trust it.
+
 ## License
 
 [Mozilla Public License 2.0](LICENSE).
