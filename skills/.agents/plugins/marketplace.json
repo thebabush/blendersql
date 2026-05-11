@@ -1,0 +1,20 @@
+{
+  "name": "blendersql-tools",
+  "interface": {
+    "displayName": "BlenderSQL"
+  },
+  "plugins": [
+    {
+      "name": "blendersql",
+      "source": {
+        "source": "local",
+        "path": "./plugins/blendersql"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Creative Tools"
+    }
+  ]
+}

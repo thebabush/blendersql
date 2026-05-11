@@ -1,0 +1,71 @@
+[project]
+name = "blendersql"
+version = "0.0.1"
+description = "SQL interface to bpy.data for AI agents"
+requires-python = ">=3.13"
+license = { text = "MPL-2.0" }
+authors = [{ name = "Paolo Montesel", email = "paolo.montesel@gmail.com" }]
+dependencies = [
+    "apsw>=3.50.4",
+]
+
+[project.scripts]
+blendersql = "cli.blendersql:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+# The repo root is a Blender addon, not a Python package; only the standalone
+# CLI is installable as a console script.
+packages = ["cli"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pre-commit>=3.8",
+]
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+exclude = ['reference/', 'build/', 'dist/', '\.venv/']
+
+# The repo root is a Blender addon package, so `cli/` is discovered as
+# `blendersql.cli.*` during the source walk. The test harness imports it as
+# top-level `cli.*` (after inserting the repo root on sys.path), which would
+# otherwise register the same files under two module names. Tell mypy not to
+# follow that import — `cli/` is still type-checked via the package walk.
+[[tool.mypy.overrides]]
+module = ['cli', 'cli.*']
+follow_imports = 'skip'
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# E501: line length handled by the formatter.
+# RUF012: bpy registration classes legitimately use set/dict class attrs
+#         (bl_options, etc.) — annotating them ClassVar buys nothing here.
+ignore = ["E501", "RUF012"]
+
+# Note: pytest config lives in tests/pytest.ini, not here, because the repo
+# root contains an __init__.py (the Blender addon entry point). pytest treats
+# any directory with __init__.py as a Package and tries to import it during
+# collection; the addon imports bpy, which is only available inside Blender.
+# Anchoring the rootdir at tests/ via tests/pytest.ini avoids that walk-up.

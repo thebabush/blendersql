@@ -1,0 +1,13 @@
+{
+  "name": "blendersql",
+  "version": "0.0.1",
+  "description": "SQL interface to bpy.data: 75 virtual tables (10 writable) plus 26 SQL functions for querying and editing scenes, grease pencil, meshes, materials, animation, modifiers, VSE, and assets in a running Blender",
+  "author": {
+    "name": "Paolo Montesel",
+    "email": "paolo.montesel@gmail.com"
+  },
+  "homepage": "https://github.com/thebabush/blendersql",
+  "repository": "https://github.com/thebabush/blendersql-skills",
+  "license": "MPL-2.0",
+  "keywords": ["blender", "bpy", "sql", "3d", "grease-pencil", "agent"]
+}

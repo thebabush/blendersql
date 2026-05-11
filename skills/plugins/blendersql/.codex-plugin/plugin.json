@@ -1,0 +1,38 @@
+{
+  "name": "blendersql",
+  "version": "0.0.1",
+  "description": "SQL interface to bpy.data: 75 virtual tables (10 writable) plus 26 SQL functions for querying and editing scenes, grease pencil, meshes, materials, animation, modifiers, VSE, and assets in a running Blender",
+  "author": {
+    "name": "Paolo Montesel",
+    "email": "paolo.montesel@gmail.com"
+  },
+  "homepage": "https://github.com/thebabush/blendersql",
+  "repository": "https://github.com/thebabush/blendersql-skills",
+  "license": "MPL-2.0",
+  "keywords": [
+    "blender",
+    "bpy",
+    "sql",
+    "3d",
+    "grease-pencil",
+    "agent"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "BlenderSQL",
+    "shortDescription": "Drive Blender over SQL: query and edit bpy.data through virtual tables and verbs",
+    "longDescription": "Adds a namespaced BlenderSQL skill set for working with a running Blender (GUI add-on, headless CLI, or HTTP server): scenes and objects, grease pencil v3, meshes, materials and node trees, layered animation, modifiers and constraints, the video sequencer, the asset grab-bag, and Python escape hatches — all over SQL.",
+    "developerName": "Paolo Montesel",
+    "category": "Creative Tools",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/thebabush/blendersql",
+    "defaultPrompt": [
+      "Start a BlenderSQL session and orient the .blend file.",
+      "Show me the scene hierarchy and the biggest datablocks.",
+      "Move 'Cube' to the origin and add a Subsurf modifier."
+    ]
+  }
+}
