@@ -29,3 +29,4 @@ wheels/*.whl
 # Test artifacts
 tests/.server_info.json
 tests/fixtures/test_scene.blend
+data/
