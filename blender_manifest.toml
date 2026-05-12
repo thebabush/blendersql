@@ -45,6 +45,7 @@ paths_exclude_pattern = [
     "/pyproject.toml",
     "/uv.lock",
     "/.python-version",
+    "/DEVELOPMENT.md",
     "/Makefile",
     "/.rrr",
     "/.pytest_cache/",
