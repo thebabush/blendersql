@@ -40,21 +40,22 @@ SELECT bpy_exec('bpy.data.lights["Lamp"].energy = 500');
 SELECT bpy_exec('result = len(bpy.data.objects)');
 -- → {"stdout":"","result":28,"error":null}
 
--- Multi-step: rename, retarget, report
-SELECT bpy_exec($$
+-- Multi-step: rename, retarget, report (multi-line code lives inside one '...' literal —
+-- write strings with " so you never need to escape the surrounding ')
+SELECT bpy_exec('
 o = bpy.data.objects["Cube"]
 o.name = "Hero"
 o.modifiers["Subsurf"].levels = 3
 print("done")
 result = {"name": o.name, "levels": o.modifiers["Subsurf"].levels}
-$$);
+');
 -- → {"stdout":"done\n","result":{"name":"Hero","levels":3},"error":null}
 
 -- Direct mesh / attribute edit (no bmesh needed in object mode)
 SELECT bpy_exec('m = bpy.data.meshes["Cube"]; m.vertices[0].co.z += 1; m.update()');
 ```
 
-On error: `{"stdout":"...","result":null,"error":{"type":"<ExcType>","message":"..."}}` — again, outer query stays `ok:true`. Use SQLite dollar-quoting (`$$ ... $$`) for multi-line code so you don't fight `'` escaping.
+On error: `{"stdout":"...","result":null,"error":{"type":"<ExcType>","message":"..."}}` — again, outer query stays `ok:true`. SQLite has **no** dollar-quoting (`$$ … $$` is a syntax error); pass code as an ordinary `'…'` literal — newlines inside are fine — and write your Python with `"`-quoted strings so the surrounding `'` never needs escaping (if you must embed a `'`, double it: `''`).
 
 ### `bpy_op(operator, params_json?, context_override_json?)` — run any operator
 Calls `bpy.ops.<operator>(**params)`, optionally under `context.temp_override(...)`. The override keys `active_object`, `object`, `edit_object`, `selected_objects`, `selected_editable_objects` accept object *names* (resolved for you); anything else (`area`, `region`, `window`, custom keys) is passed verbatim — GUI-bound overrides usually need to be staged via `bpy_exec`.
@@ -134,7 +135,8 @@ The ring is per-session and not persisted in the `.blend`.
 
 - **Errors hide in the JSON.** A failing `bpy_eval`/`bpy_exec`/`bpy_op`/verb returns `ok:true` at the query level with the error embedded in the result cell. Always inspect the value (`json_extract(bpy_op(...), '$.error')`).
 - `bpy_exec` only returns what you assign to `result`; bare expressions are discarded — assign or `print()`.
-- Use dollar-quoting (`$$ ... $$`) for multi-line `bpy_exec` code; single-quote escaping inside SQL string literals is painful otherwise.
+- SQLite has no dollar-quoting — pass multi-line `bpy_exec` code as a plain `'…'` literal (newlines OK) and use `"`-quoted strings in the Python so the wrapping `'` never needs escaping; double a literal `'` as `''` if you really need one.
 - `bpy_op` runs on Blender's main thread in whatever context the bridge provides — operators that need a specific 3D-viewport/area context will fail unless you stage the override with `bpy_exec` first.
 - `bpy_exec`/`bpy_eval` *don't* call `ed.undo_push` for you — if you make an edit you want Ctrl+Z-able, add `bpy.ops.ed.undo_push(message='...')` yourself (the typed verbs and writable vtables already do).
 - **Don't loop `bpy.ops.render.render()` (or other heavy, engine-spinning ops) many times inside one `bpy_exec`.** Headless Blender accumulates per-render state (GL/Metal context, depsgraph, engine teardown) with no event-loop tick to clear it between calls; past a handful it *wedges* — the process sits at 0 % CPU stuck inside `render.render`, the bridge stops draining, and there's no graceful recovery (you have to kill it). Render **one thing per `bpy_exec` call** (each is its own bridge round-trip — fine), or, for a big batch, shell out one `blender --background file.blend --python render_one.py` per render (fresh process, fresh context — bulletproof). Same caution for repeated `bpy.ops.wm.*` / sim-bake ops in a tight loop. (Also: scripts that mutate `scene.render.*` / `frame_start`/`frame_end` to drive a render should restore them afterwards unless the session is throwaway — those changes stick and `save()` would persist them.)
+- **Writing a still image needs `image_settings.media_type == 'IMAGE'`.** When a scene's output is set to video, `scene.render.image_settings.media_type` is `'VIDEO'` and the `file_format` enum only offers `'FFMPEG'` — assigning `'PNG'` / `'OPEN_EXR'` / etc. raises `enum "PNG" not found in ('FFMPEG')`. Flip `media_type='IMAGE'` first, *then* set `file_format`; restore both afterwards if you want the scene unchanged (the FFmpeg container/codec on `scene.render.ffmpeg.*` survive the toggle, and changing `media_type` coerces `file_format` to a valid value so restore `media_type` before `file_format`). In `--background`, `bpy.ops.render.render(write_still=False)` then reading `bpy.data.images['Render Result']` doesn't work — the result holds no pixel data — so it's `write_still=True` to a path (with `media_type='IMAGE'`), or render in a fresh throwaway scene which defaults to `IMAGE`/`PNG` (what the `render_object` verb does).
