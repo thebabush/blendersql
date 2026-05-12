@@ -102,6 +102,8 @@ All 22 are variadic scalar functions returning a `{ok, result, error}` JSON enve
 | `import_file` | `import_file(filepath [, format])` | `SELECT import_file('/assets/prop.glb');` — format inferred from extension (OBJ/STL/PLY/USD/FBX/GLTF/GLB/X3D) or pass it explicitly; availability of the underlying operator is probed at call time. |
 | `export_file` | `export_file(filepath [, format [, selection_json]])` | `SELECT export_file('/out/scene.fbx','FBX','["Cube","Lamp"]');` — `selection_json` is an array of object names to select before export. |
 
+> `render` does a single still. For an *animation* render (a video, or a frame range), or to render through a specific camera, there's no verb yet — drop to `bpy_exec` (`bpy.ops.render.render(animation=True)`), but **one render per `bpy_exec` call**, not a loop: headless Blender wedges after a handful of back-to-back `render.render` calls in one execution (see the `python` skill's gotcha). For many renders, shell out one `blender --background … --python` per render instead.
+
 ### Cleanup
 | Function | Signature | Example |
 |---|---|---|
