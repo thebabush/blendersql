@@ -23,7 +23,7 @@ The add-on registers a set of [SQLite virtual tables](https://www.sqlite.org/vta
 | Mode | How to start | Best for |
 |------|-------------|----------|
 | **Standalone CLI** | `blendersql -s file.blend -i` | Direct SQL, scripting, pipelines, headless |
-| **Add-on in Blender** | Enable the extension, then *Start server* in its prefs (or `--http` from the CLI) | SQL against the file you're working on, live |
+| **Add-on in Blender** | Enable the extension — the server starts automatically (toggle in prefs) | SQL against the file you're working on, live |
 | **Skill workflow** | `/blendersql:connect` in your coding agent | AI-driven editing — the agent issues SQL on its own |
 
 ```
@@ -44,7 +44,7 @@ $ blendersql -s shot_01.blend -q "SELECT name, type FROM objects WHERE type='GRE
 
 ## Quick Start
 
-1. Install the add-on (see [Installation](#installation)) and enable it. It hosts a localhost HTTP server (default `127.0.0.1:8174`) — start it from the add-on preferences, or tick *Start server on load*.
+1. Install the add-on (see [Installation](#installation)) and enable it. It starts a localhost HTTP server (default `127.0.0.1:8174`) automatically — untick *Start server on load* in its preferences if you don't want that, or use the Start/Stop buttons there.
 2. Install the `/blendersql` skills into your coding agent.
 3. In your agent, point it at the open Blender:
 

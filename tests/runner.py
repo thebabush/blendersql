@@ -56,6 +56,9 @@ def main() -> None:
     from bl_ext.user_default.blendersql import server as bsql_server
 
     try:
+        # The add-on auto-starts the server on its default port when enabled;
+        # stop it and rebind to the port this runner was told to use.
+        bsql_server.stop()
         bsql_server.start(_BIND, port)
     except Exception:
         traceback.print_exc()

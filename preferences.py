@@ -21,7 +21,8 @@ class BlenderSQLPreferences(bpy.types.AddonPreferences):
     )
     autostart: bpy.props.BoolProperty(  # type: ignore[valid-type]
         name='Start server on load',
-        default=False,
+        default=True,
+        description='Start the HTTP server automatically when the add-on is enabled / Blender starts.',
     )
 
     def draw(self, context: bpy.types.Context) -> None:

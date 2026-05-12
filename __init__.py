@@ -13,7 +13,10 @@ def register() -> None:
     engine.initialize()
     prefs = preferences.get()
     if prefs.autostart:
-        server.start(prefs.bind, prefs.port)
+        try:
+            server.start(prefs.bind, prefs.port)
+        except OSError as exc:
+            print(f'BlenderSQL: HTTP server not started ({prefs.bind}:{prefs.port}): {exc}')
 
 
 def unregister() -> None:
