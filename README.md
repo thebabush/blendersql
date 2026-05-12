@@ -90,7 +90,7 @@ BlenderSQL exposes Blender's data as ~75 live SQL tables plus a set of editing f
 
 ## Disclosure
 
-This project is mostly vibecoded, and I mostly use it for my Grease Pencil / 2D Animation, so beware.
+This is mostly vibecoded, it's young, and I mostly use it for my own Grease Pencil / 2D animation. Every edit is a normal Blender undo step, so it's not reckless — but it hasn't been stress-tested by lots of people on lots of files. So: poke at it, use it on copies and side projects, hit `save` before turning an agent loose. Don't point it at the production files at Pixar. (Yet.)
 
 ## Credits
 
