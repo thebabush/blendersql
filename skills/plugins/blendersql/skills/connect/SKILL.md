@@ -31,14 +31,34 @@ blendersql -s scene.blend --http 8174
 blendersql -s scene.blend -w -q "INSERT INTO objects(name,type) VALUES('Probe','EMPTY')"
 ```
 
-Over HTTP, every query is `POST /query` with raw SQL in the body:
+Over HTTP, every query is `POST /query` with raw SQL in the body. The server reads the body verbatim — no JSON wrapper, no form encoding, no Content-Type check. Pick the form that avoids shell-quote pain:
 
 ```bash
+# 1. Short one-liner — fine when the SQL has no quotes you'd have to escape.
 curl -s -X POST http://127.0.0.1:8174/query -d "SELECT name,type FROM objects LIMIT 10"
+
+# 2. File body — best for multi-line SQL or anything with embedded ' and ".
+#    --data-binary preserves bytes verbatim; plain -d strips CR/LF.
+cat > /tmp/q.sql <<'EOF'
+SELECT
+  "has double "" quote" AS d,
+  'has single '' quote' AS s,
+  bpy_eval('"GREETING, " + "world!"') AS msg
+EOF
+curl -s --data-binary @/tmp/q.sql http://127.0.0.1:8174/query
+
+# 3. Heredoc straight into curl — same effect, no temp file. The 'EOF' (quoted)
+#    keeps the shell from expanding $vars / backticks inside the SQL.
+curl -s --data-binary @- http://127.0.0.1:8174/query <<'EOF'
+SELECT bpy_eval('"GREETING, " + "world!"') AS msg
+EOF
+
 curl -s http://127.0.0.1:8174/status        # {"status": "ok", "running": true}
 curl -s http://127.0.0.1:8174/help          # endpoint list
 curl -s -X POST http://127.0.0.1:8174/shutdown
 ```
+
+Rule of thumb: use form 1 only for trivial selects. The moment you need `bpy_eval('…python…')` or any embedded `'`/`"`, switch to form 2 or 3 — three layers of escaping (shell, SQL, Python) is the route to `chr(71)+chr(82)+…` workarounds. Always `--data-binary`, never plain `-d @file`, when the body has meaningful newlines.
 
 Inside the Blender GUI: open **Edit ▸ Preferences ▸ Add-ons ▸ BlenderSQL** and click **Start BlenderSQL Server** (or set "Start server on load"). It listens on `127.0.0.1:8174`; hit `/query` exactly as above. There is no in-Blender REPL prompt — the add-on only exposes the Start/Stop operators (`blendersql.start_server` / `blendersql.stop_server`).
 
