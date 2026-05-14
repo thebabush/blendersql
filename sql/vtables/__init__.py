@@ -41,6 +41,7 @@ def register_all(engine: Engine) -> None:
     _bind(engine, 'welcome', welcome.Welcome())
     _bind(engine, 'objects', objects.Objects())
     _bind(engine, 'scenes', scenes.Scenes())
+    _bind(engine, 'scene_objects', scenes.SceneObjects())
     _bind(engine, 'collections', collections.Collections())
     _bind(engine, 'collection_objects', collections.CollectionObjects())
     _bind(engine, 'materials', materials.Materials())

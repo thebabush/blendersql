@@ -160,6 +160,31 @@ def _ensure_world() -> None:
         bpy.context.scene.world = bpy.data.worlds[0]
 
 
+def _build_extra_scene_with_nested_collection(shared: bpy.types.Object) -> None:
+    """Create a second scene that links `shared` and exercises nested collections.
+
+    Layout for the new scene 'Scene.002':
+        master collection
+          - 'Outer'
+              - 'Inner'
+                  - Empty 'NestedEmpty'
+          - directly-linked 'shared' (object also in main scene)
+
+    The shared object lets us assert it appears once per scene it's linked
+    into. The nested empty lets us assert all_objects recurses.
+    """
+    extra = bpy.data.scenes.new('Scene.002')
+    inner = bpy.data.collections.new('Inner')
+    outer = bpy.data.collections.new('Outer')
+    outer.children.link(inner)
+    extra.collection.children.link(outer)
+
+    nested_empty = bpy.data.objects.new('NestedEmpty', None)
+    inner.objects.link(nested_empty)
+
+    extra.collection.objects.link(shared)
+
+
 def main() -> None:
     argv = sys.argv
     sep = argv.index('--') if '--' in argv else -1
@@ -177,6 +202,8 @@ def main() -> None:
     _build_curve()
     _build_text()
     _build_action(cube)
+
+    _build_extra_scene_with_nested_collection(cube)
 
     bpy.context.scene.frame_set(1)
     bpy.context.view_layer.update()

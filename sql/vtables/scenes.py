@@ -49,3 +49,36 @@ class Scenes(IteratorVTable):
                 )
             )
         return rows
+
+
+class SceneObjects(IteratorVTable):
+    """Flattened scene -> all linked objects (recursive across nested collections).
+
+    Uses `scene.collection.all_objects` which already recursively walks the
+    scene's master collection and its child collections. An object linked
+    into multiple scenes appears once per scene.
+    """
+
+    schema = (
+        'CREATE TABLE scene_objects('
+        'scene TEXT, '
+        'object TEXT, '
+        'type TEXT, '
+        'hide_viewport INTEGER, '
+        'hide_render INTEGER)'
+    )
+
+    def snapshot(self) -> list[tuple[Any, ...]]:
+        rows: list[tuple[Any, ...]] = []
+        for s in bpy.data.scenes:
+            for o in s.collection.all_objects:
+                rows.append(
+                    (
+                        s.name,
+                        o.name,
+                        o.type,
+                        int(o.hide_viewport),
+                        int(o.hide_render),
+                    )
+                )
+        return rows
