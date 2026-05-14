@@ -62,17 +62,40 @@ Most datablock tables expose `users` (the bpy user count). `users = 0` ⇒ orpha
 SELECT name, users FROM materials ORDER BY users DESC LIMIT 15;
 SELECT name, users, polygon_count FROM meshes ORDER BY users DESC LIMIT 15;
 
--- Orphaned datablocks across the common types
+-- Orphaned datablocks. `users` exposes the bpy user count on every ID
+-- vtable; `users=0` is the strict orphan signal. Cover the long tail too —
+-- production files accumulate stray text/font/shape_key/world/brush blocks.
 SELECT 'mesh'     AS kind, name FROM meshes        WHERE users=0
-UNION ALL SELECT 'material', name FROM materials   WHERE users=0
-UNION ALL SELECT 'image',    name FROM images      WHERE users=0
-UNION ALL SELECT 'action',   name FROM actions     WHERE users=0
-UNION ALL SELECT 'curve',    name FROM curves      WHERE users=0
-UNION ALL SELECT 'armature', name FROM armatures   WHERE users=0
-UNION ALL SELECT 'light',    name FROM lights      WHERE users=0
-UNION ALL SELECT 'camera',   name FROM cameras     WHERE users=0
-UNION ALL SELECT 'sound',    name FROM sounds      WHERE users=0
+UNION ALL SELECT 'material',  name FROM materials   WHERE users=0
+UNION ALL SELECT 'image',     name FROM images      WHERE users=0
+UNION ALL SELECT 'action',    name FROM actions     WHERE users=0
+UNION ALL SELECT 'curve',     name FROM curves      WHERE users=0
+UNION ALL SELECT 'armature',  name FROM armatures   WHERE users=0
+UNION ALL SELECT 'light',     name FROM lights      WHERE users=0
+UNION ALL SELECT 'camera',    name FROM cameras     WHERE users=0
+UNION ALL SELECT 'sound',     name FROM sounds      WHERE users=0
+UNION ALL SELECT 'text',      name FROM texts       WHERE users=0
+UNION ALL SELECT 'gp',        name FROM grease_pencils WHERE users=0
+UNION ALL SELECT 'shape_key', name FROM shape_keys  WHERE users=0
+UNION ALL SELECT 'font',      name FROM fonts       WHERE users=0
+UNION ALL SELECT 'world',     name FROM worlds      WHERE users=0
+UNION ALL SELECT 'palette',   name FROM palettes    WHERE users=0
+UNION ALL SELECT 'brush',     name FROM brushes     WHERE users=0
+UNION ALL SELECT 'movieclip', name FROM movieclips  WHERE users=0
+UNION ALL SELECT 'cache',     name FROM cache_files WHERE users=0
+UNION ALL SELECT 'linestyle', name FROM linestyles  WHERE users=0
+UNION ALL SELECT 'mask',      name FROM masks       WHERE users=0
 ORDER BY kind, name;
+
+-- `users=0` ignores fake-user-flagged blocks (Blender's default brush set
+-- ships with use_fake_user=True, so 70+ brushes would be "orphans" but
+-- aren't auto-purged). To audit those — and confirm what purge_orphans()
+-- will actually delete — drop to bpy_eval (no SQL column for it yet):
+SELECT bpy_eval('[(c, b.name) for c in ("meshes","materials","actions","images","curves","armatures","texts","grease_pencils","shape_keys","fonts","worlds","palettes","linestyles","movieclips","sounds","node_groups") for b in getattr(bpy.data, c) if getattr(b, "use_fake_user", False) and b.users==1]');
+
+-- Then clean up: `SELECT purge_orphans();` removes the `users=0` rows
+-- (fake-user blocks survive — flip `use_fake_user=False` first via
+-- bpy_exec if you want them gone too).
 
 -- Materials that exist but aren't in any slot
 SELECT name FROM materials WHERE name NOT IN (SELECT DISTINCT material FROM material_slots WHERE material IS NOT NULL);

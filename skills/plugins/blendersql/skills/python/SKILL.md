@@ -10,6 +10,8 @@ allowed-tools:
 
 When SQL rows and the 22 typed verbs aren't enough, drop to Python. Three SQL functions give you the full `bpy` API; `session_log` records what's been done.
 
+**Before writing `bpy_exec`, sanity-check:** if your code is shaped like `for x in bpy.data.<kind>: ...` or `[x.foo for x in bpy.data.<kind>]`, you almost certainly want a vtable instead. Every `bpy.data` container has a corresponding SQL table (`bpy.data.meshes` → `meshes`, `bpy.data.lights` → `lights`, …) — a `SELECT name, users, … FROM <kind> WHERE …` is shorter, faster, and avoids the quoting / multi-line / partial-failure pitfalls below. The orphan / audit / heaviness recipes in the `analysis` skill cover the common cases. Reach for `bpy_exec` when you need genuine per-element method calls (`.update()`, `.transform()`, operators), not for reads or filters.
+
 ---
 
 ## The functions
