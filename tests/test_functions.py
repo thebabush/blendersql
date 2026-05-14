@@ -51,6 +51,22 @@ def test_grep_table_matches(client) -> None:
     assert 'Cube' in names
 
 
+def test_grep_table_like_matches_eq(client) -> None:
+    # `WHERE pattern LIKE '<pat>'` should return the same rows as
+    # `WHERE pattern = '<pat>'` for any pattern. The vtable claims the
+    # LIKE constraint in BestIndex so the value is forwarded to the
+    # cursor's Filter exactly like an EQ.
+    for pat in ('Cube%', '%Cube%', 'Cube'):
+        eq = client.query(f"SELECT name, kind FROM grep WHERE pattern='{pat}'")
+        like = client.query(f"SELECT name, kind FROM grep WHERE pattern LIKE '{pat}'")
+        assert eq['ok'], eq
+        assert like['ok'], like
+        assert sorted(map(tuple, eq['rows'])) == sorted(map(tuple, like['rows'])), (
+            f'LIKE vs EQ mismatch for {pat!r}: eq={eq["rows"]!r} like={like["rows"]!r}'
+        )
+        assert like['row_count'] > 0, f'expected matches for {pat!r}, got none'
+
+
 def test_grep_scalar_function(client) -> None:
     r = client.query("SELECT grep('Cube%', 20, 0)")
     assert r['ok'], r

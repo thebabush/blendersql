@@ -37,10 +37,13 @@ SELECT type, COUNT(*) FROM objects GROUP BY type ORDER BY 2 DESC;
 
 ```sql
 -- Anything matching a pattern, grouped by kind
-SELECT kind, COUNT(*) FROM grep WHERE pattern='Probe%' GROUP BY kind;
+SELECT kind, COUNT(*) FROM grep WHERE pattern LIKE 'Probe%' GROUP BY kind;
 
 -- Just the objects
-SELECT name FROM grep WHERE pattern='%rig%' AND kind='object';
+SELECT name FROM grep WHERE pattern LIKE '%rig%' AND kind='object';
+
+-- `=` works too — both spellings claim the same constraint internally
+SELECT name FROM grep WHERE pattern='Probe%';
 
 -- Or the JSON form for a quick payload
 SELECT grep('Mat%', 20, 0);

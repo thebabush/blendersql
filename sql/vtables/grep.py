@@ -10,6 +10,17 @@ from .datablocks import iter_named_datablocks
 
 _PATTERN_COL = 0
 
+# Constraint operators we claim on the hidden `pattern` column. EQ is the
+# original surface; LIKE/GLOB are accepted because `compile_matcher` already
+# handles `%`/`_` wildcards, and `LIKE` is the natural SQL spelling.
+_PATTERN_OPS = frozenset(
+    {
+        apsw.SQLITE_INDEX_CONSTRAINT_EQ,
+        apsw.SQLITE_INDEX_CONSTRAINT_LIKE,
+        apsw.SQLITE_INDEX_CONSTRAINT_GLOB,
+    }
+)
+
 
 class Grep:
     schema = (
@@ -34,7 +45,7 @@ class _GrepVTable:
         used: list[Any] = [None] * len(constraints)
         argv_index = 0
         for i, (col, op) in enumerate(constraints):
-            if col == _PATTERN_COL and op == apsw.SQLITE_INDEX_CONSTRAINT_EQ:
+            if col == _PATTERN_COL and op in _PATTERN_OPS:
                 used[i] = (argv_index, True)
                 argv_index += 1
         estimated_cost = 100.0 if argv_index > 0 else 1e9
