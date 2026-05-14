@@ -29,6 +29,11 @@ FIXTURE_BLEND = TESTS_DIR / 'fixtures' / 'test_scene.blend'
 BUILD_FIXTURE_PY = TESTS_DIR / 'fixtures' / 'build_fixture.py'
 RUNNER_PY = TESTS_DIR / 'runner.py'
 SERVER_INFO = TESTS_DIR / '.server_info.json'
+# Test-local extensions root so `make test` doesn't depend on the dev symlink
+# at ~/Library/Application Support/Blender/5.1/extensions/. Crucially, when
+# this file lives inside a git worktree it points Blender at the worktree's
+# code instead of whatever the user's live install symlink targets.
+EXTENSIONS_ROOT = TESTS_DIR / '.blender_user_extensions'
 
 sys.path.insert(0, str(REPO_ROOT))
 from cli._blender import find_blender as _find_blender  # noqa: E402
@@ -36,6 +41,33 @@ from cli._blender import pick_free_port as _pick_port  # noqa: E402
 
 _READY_TIMEOUT_S = 60.0
 _SHUTDOWN_TIMEOUT_S = 5.0
+
+
+def _ensure_extension_symlink() -> None:
+    """Wire the repo into a test-local extensions tree.
+
+    Blender's extension loader expects each extension at
+    `<extensions-root>/<repo>/<addon-name>/`. We mirror that under
+    `tests/.blender_user_extensions/` and let `BLENDER_USER_EXTENSIONS`
+    point Blender at it. The symlink target is REPO_ROOT (which is the
+    git worktree root when running under a worktree), so tests always
+    exercise the code in this checkout — not whatever the user's live
+    `~/Library/.../user_default/blendersql` happens to point at.
+    """
+    user_default = EXTENSIONS_ROOT / 'user_default'
+    user_default.mkdir(parents=True, exist_ok=True)
+    link = user_default / 'blendersql'
+    target = str(REPO_ROOT)
+    # Recreate the symlink only if missing or pointing elsewhere — keeps the
+    # check fast and avoids racing other test runs.
+    if link.is_symlink():
+        if os.readlink(link) == target:
+            return
+        link.unlink()
+    elif link.exists():
+        # A stray non-symlink path — refuse to clobber, surface the conflict.
+        raise RuntimeError(f'expected {link} to be a symlink or absent; refusing to overwrite')
+    link.symlink_to(target, target_is_directory=True)
 
 
 def _build_fixture(blender: str) -> None:
@@ -103,12 +135,16 @@ def blender_server() -> Iterator[dict[str, Any]]:
 
     _build_fixture(blender)
     SERVER_INFO.unlink(missing_ok=True)
+    _ensure_extension_symlink()
 
     port = _pick_port()
     base_url = f'http://127.0.0.1:{port}'
     env = os.environ.copy()
     env['BLENDERSQL_TEST_PORT'] = str(port)
     env['BLENDERSQL_TEST_INFO'] = str(SERVER_INFO)
+    # Redirect Blender's extension search at our test-local tree so the runner
+    # picks up THIS checkout, not the user's installed dev symlink.
+    env['BLENDER_USER_EXTENSIONS'] = str(EXTENSIONS_ROOT)
 
     cmd = [
         blender,

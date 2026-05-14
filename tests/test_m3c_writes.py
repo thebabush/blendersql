@@ -70,6 +70,37 @@ def test_material_is_grease_pencil_readonly(client) -> None:
         client.query("DELETE FROM materials WHERE name='SqlMatGP'")
 
 
+def test_material_insert_with_is_grease_pencil_attaches_gp_data(client) -> None:
+    try:
+        r = client.query("INSERT INTO materials(name, is_grease_pencil) VALUES ('SqlMatGPNew', 1)")
+        assert r['ok'], r
+        chk = client.query("SELECT is_grease_pencil FROM materials WHERE name='SqlMatGPNew'")
+        assert chk['ok'] and chk['rows'][0][0] == 1, chk
+        # And bpy itself agrees: the dedicated GP-data backing is attached.
+        live = _bpy_exec(
+            client,
+            'result = bool(bpy.data.materials["SqlMatGPNew"].is_grease_pencil)',
+        )
+        assert live['result'] is True, live
+    finally:
+        client.query("DELETE FROM materials WHERE name='SqlMatGPNew'")
+
+
+def test_material_insert_without_is_grease_pencil_is_not_gp(client) -> None:
+    try:
+        r = client.query("INSERT INTO materials(name) VALUES ('SqlMatPlainNew')")
+        assert r['ok'], r
+        chk = client.query("SELECT is_grease_pencil FROM materials WHERE name='SqlMatPlainNew'")
+        assert chk['ok'] and chk['rows'][0][0] == 0, chk
+        live = _bpy_exec(
+            client,
+            'result = bool(bpy.data.materials["SqlMatPlainNew"].is_grease_pencil)',
+        )
+        assert live['result'] is False, live
+    finally:
+        client.query("DELETE FROM materials WHERE name='SqlMatPlainNew'")
+
+
 # --------------------------------------------------------------------------- modifiers
 
 
@@ -499,3 +530,136 @@ def test_material_gp_settings_update(client) -> None:
             'm = bpy.data.materials.get("SqlGpMat")\n'
             'if m is not None: bpy.data.materials.remove(m)',
         )
+
+
+# --------------------------------------------------------------------------- material_slots
+
+
+@pytest.fixture
+def _gp_object_with_two_slots(client):
+    """Build a GP object with two GP materials and a slot pointing at the first.
+
+    Cleans up the object and both materials on teardown, even if the test
+    leaves bpy in a partially-mutated state.
+    """
+    _bpy_exec(
+        client,
+        'm_a = bpy.data.materials.new("SqlSlotMatA")\n'
+        'bpy.data.materials.create_gpencil_data(m_a)\n'
+        'm_b = bpy.data.materials.new("SqlSlotMatB")\n'
+        'bpy.data.materials.create_gpencil_data(m_b)\n'
+        'gp = bpy.data.grease_pencils.new("SqlSlotGP")\n'
+        'obj = bpy.data.objects.new("SqlSlotObj", gp)\n'
+        'bpy.context.scene.collection.objects.link(obj)\n'
+        'obj.data.materials.append(m_a)',
+    )
+    try:
+        yield
+    finally:
+        _bpy_exec(
+            client,
+            'obj = bpy.data.objects.get("SqlSlotObj")\n'
+            'if obj is not None:\n'
+            '    data = obj.data\n'
+            '    bpy.data.objects.remove(obj, do_unlink=True)\n'
+            '    if data is not None and data.users == 0:\n'
+            '        bpy.data.grease_pencils.remove(data)\n'
+            'for n in ("SqlSlotMatA", "SqlSlotMatB"):\n'
+            '    m = bpy.data.materials.get(n)\n'
+            '    if m is not None: bpy.data.materials.remove(m)',
+        )
+
+
+def test_material_slot_update_rebinds_material(client, _gp_object_with_two_slots) -> None:
+    r = client.query(
+        "UPDATE material_slots SET material='SqlSlotMatB' "
+        "WHERE object='SqlSlotObj' AND slot_index=0"
+    )
+    assert r['ok'], r
+    chk = client.query(
+        "SELECT material FROM material_slots WHERE object='SqlSlotObj' AND slot_index=0"
+    )
+    assert chk['ok'] and chk['rows'][0][0] == 'SqlSlotMatB', chk
+    live = _bpy_exec(
+        client,
+        'result = bpy.data.objects["SqlSlotObj"].material_slots[0].material.name',
+    )
+    assert live['result'] == 'SqlSlotMatB', live
+
+
+def test_material_slot_update_clears_with_null(client, _gp_object_with_two_slots) -> None:
+    r = client.query(
+        "UPDATE material_slots SET material=NULL WHERE object='SqlSlotObj' AND slot_index=0"
+    )
+    assert r['ok'], r
+    chk = client.query(
+        "SELECT material FROM material_slots WHERE object='SqlSlotObj' AND slot_index=0"
+    )
+    assert chk['ok'] and chk['rows'][0][0] is None, chk
+    live = _bpy_exec(
+        client,
+        'slot = bpy.data.objects["SqlSlotObj"].material_slots[0]\nresult = slot.material is None',
+    )
+    assert live['result'] is True, live
+
+
+def test_material_slot_update_unknown_material_rejected(client, _gp_object_with_two_slots) -> None:
+    r = client.query(
+        "UPDATE material_slots SET material='SqlNoSuchMat' "
+        "WHERE object='SqlSlotObj' AND slot_index=0"
+    )
+    assert r['ok'] is False, r
+    assert 'SqlNoSuchMat' in r.get('error', ''), r
+    # Slot must be unchanged.
+    chk = client.query(
+        "SELECT material FROM material_slots WHERE object='SqlSlotObj' AND slot_index=0"
+    )
+    assert chk['ok'] and chk['rows'][0][0] == 'SqlSlotMatA', chk
+
+
+def test_material_slot_update_out_of_range_index_is_noop(client, _gp_object_with_two_slots) -> None:
+    # The snapshot only emits real slots, so WHERE slot_index=7 on a 1-slot
+    # object matches zero rows — UPDATE succeeds with row_count=0 and does
+    # not crash. The _apply_update guard is belt-and-suspenders for races
+    # between snapshot and apply.
+    r = client.query(
+        "UPDATE material_slots SET material='SqlSlotMatB' "
+        "WHERE object='SqlSlotObj' AND slot_index=7"
+    )
+    assert r['ok'], r
+    assert r.get('row_count', 0) == 0, r
+    # The real slot is untouched.
+    chk = client.query(
+        "SELECT material FROM material_slots WHERE object='SqlSlotObj' AND slot_index=0"
+    )
+    assert chk['ok'] and chk['rows'][0][0] == 'SqlSlotMatA', chk
+
+
+def test_material_slot_insert_rejected(client, _gp_object_with_two_slots) -> None:
+    r = client.query(
+        'INSERT INTO material_slots(object, slot_index, material) '
+        "VALUES ('SqlSlotObj', 7, 'SqlSlotMatB')"
+    )
+    assert r['ok'] is False, r
+    assert 'not supported' in r.get('error', '').lower(), r
+
+
+def test_material_slot_delete_rejected(client, _gp_object_with_two_slots) -> None:
+    r = client.query("DELETE FROM material_slots WHERE object='SqlSlotObj' AND slot_index=0")
+    assert r['ok'] is False, r
+    assert 'not supported' in r.get('error', '').lower(), r
+    # Slot still there.
+    chk = client.query("SELECT COUNT(*) FROM material_slots WHERE object='SqlSlotObj'")
+    assert chk['ok'] and chk['rows'][0][0] == 1, chk
+
+
+def test_material_slot_link_column_read_only(client, _gp_object_with_two_slots) -> None:
+    # Probe the read-back to see the current value, then try to flip it.
+    cur = client.query("SELECT link FROM material_slots WHERE object='SqlSlotObj' AND slot_index=0")
+    assert cur['ok'] and cur['rows'][0][0] in ('DATA', 'OBJECT'), cur
+    other = 'OBJECT' if cur['rows'][0][0] == 'DATA' else 'DATA'
+    r = client.query(
+        f"UPDATE material_slots SET link='{other}' WHERE object='SqlSlotObj' AND slot_index=0"
+    )
+    assert r['ok'] is False, r
+    assert 'read-only' in r.get('error', '').lower(), r

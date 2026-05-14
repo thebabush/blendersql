@@ -5,7 +5,7 @@ from typing import Any
 import apsw
 import bpy
 
-from .base import IteratorVTable, WritableSnapshotVTable
+from .base import WritableSnapshotVTable
 
 _COLUMNS: tuple[str, ...] = (
     'name',
@@ -48,6 +48,13 @@ class Materials(WritableSnapshotVTable):
         use_nodes = fields[_COL_INDEX['use_nodes']]
         mat = bpy.data.materials.new(name)
         mat.use_nodes = True if use_nodes is None else bool(use_nodes)
+        # is_grease_pencil attaches the GP-style backing via the dedicated
+        # `create_gpencil_data` API; just setting the attribute is a no-op.
+        # Toggling this back off after INSERT is out of scope (UPDATE keeps it
+        # read-only — it would need to restructure the datablock).
+        is_gp = fields[_COL_INDEX['is_grease_pencil']]
+        if is_gp is not None and bool(is_gp):
+            bpy.data.materials.create_gpencil_data(mat)
         srm = fields[_COL_INDEX['surface_render_method']]
         if srm is not None:
             _set_surface_render_method(mat, srm)
@@ -111,13 +118,28 @@ def _row_for(m: bpy.types.Material) -> tuple[Any, ...]:
     )
 
 
-class MaterialSlots(IteratorVTable):
+_SLOT_COLUMNS: tuple[str, ...] = ('object', 'slot_index', 'material', 'link')
+_SLOT_COL_INDEX: dict[str, int] = {name: i for i, name in enumerate(_SLOT_COLUMNS)}
+
+
+class MaterialSlots(WritableSnapshotVTable):
+    """material_slots vtable.
+
+    UPDATE rebinds slot.material to a different (or NULL) material datablock.
+    INSERT / DELETE are intentionally not implemented: adding or removing a
+    slot also requires remapping `mesh.polygons[i].material_index` (and the
+    grease-pencil / curve equivalents), which is its own design problem —
+    future work, do via bpy_exec for now.
+    """
+
+    table_name = 'material_slots'
     schema = (
         'CREATE TABLE material_slots(object TEXT, slot_index INTEGER, material TEXT, link TEXT)'
     )
 
-    def snapshot(self) -> list[tuple[Any, ...]]:
+    def _snapshot(self) -> tuple[list[tuple[Any, ...]], list[tuple[str, int]]]:
         rows: list[tuple[Any, ...]] = []
+        idents: list[tuple[str, int]] = []
         for o in bpy.data.objects:
             for i, s in enumerate(o.material_slots):
                 rows.append(
@@ -128,4 +150,57 @@ class MaterialSlots(IteratorVTable):
                         s.link,
                     )
                 )
-        return rows
+                idents.append((o.name, i))
+        return rows, idents
+
+    def _describe_identifier(self, identifier: Any) -> str:
+        obj_name, slot_index = identifier
+        return f'{obj_name}[{slot_index}]'
+
+    def _apply_insert(self, fields: tuple[Any, ...]) -> Any:
+        raise apsw.SQLError(
+            'INSERT into material_slots is not supported; use bpy_exec to append a slot '
+            '(future work: SQL-level slot management needs material_index remapping)'
+        )
+
+    def _apply_update(self, identifier: Any, fields: tuple[Any, ...]) -> None:
+        obj_name, slot_index = identifier
+        obj = bpy.data.objects.get(obj_name)
+        if obj is None:
+            raise apsw.SQLError(f"object '{obj_name}' no longer exists")
+        if slot_index < 0 or slot_index >= len(obj.material_slots):
+            raise apsw.SQLError(
+                f"slot_index {slot_index} out of range for '{obj_name}' "
+                f'(has {len(obj.material_slots)} slot(s))'
+            )
+        slot = obj.material_slots[slot_index]
+        current_material = slot.material.name if slot.material else None
+
+        new_object = fields[_SLOT_COL_INDEX['object']]
+        if new_object != obj_name:
+            raise apsw.SQLError("column 'object' is read-only on UPDATE")
+        new_slot_index = fields[_SLOT_COL_INDEX['slot_index']]
+        if new_slot_index != slot_index:
+            raise apsw.SQLError("column 'slot_index' is read-only on UPDATE")
+        new_link = fields[_SLOT_COL_INDEX['link']]
+        if new_link != slot.link:
+            raise apsw.SQLError("column 'link' is read-only on UPDATE")
+
+        new_material = fields[_SLOT_COL_INDEX['material']]
+        if new_material == current_material:
+            return
+        if new_material is None:
+            slot.material = None
+            return
+        if not isinstance(new_material, str):
+            raise apsw.SQLError('material must be a string name or NULL')
+        mat = bpy.data.materials.get(new_material)
+        if mat is None:
+            raise apsw.SQLError(f"material '{new_material}' not found")
+        slot.material = mat
+
+    def _apply_delete(self, identifier: Any) -> None:
+        raise apsw.SQLError(
+            'DELETE from material_slots is not supported; use bpy_exec to pop a slot '
+            '(future work: SQL-level slot management needs material_index remapping)'
+        )
