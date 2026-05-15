@@ -33,3 +33,7 @@ tests/fixtures/test_scene.blend
 data/
 .env
 nocommit/
+
+# Bench / comparison experiments live outside this repo for now (likely
+# moving to a sibling repo once the shape stabilises — see issues #1-#6).
+experiments/

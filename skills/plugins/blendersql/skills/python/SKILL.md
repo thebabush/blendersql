@@ -14,6 +14,34 @@ When SQL rows and the 22 typed verbs aren't enough, drop to Python. Three SQL fu
 
 ---
 
+## Discovering an unfamiliar API — introspect first, guess never
+
+`bpy` changes meaningfully between major versions (Blender 4 → 5 renamed `scene.node_tree` to `scene.compositing_node_group`, and `CompositorNodeOutputFile` slots are now `file_output_items` instead of dynamic inputs). If you're not 100% sure of a method signature, attribute name, or parameter — **introspect with `bpy_eval` before writing the edit**. One discovery query beats three failing edits.
+
+The pattern, in order:
+
+```sql
+-- 1. What attributes does this object have? (filter by hint when there are many)
+SELECT bpy_eval('[a for a in dir(bpy.context.scene) if "node" in a.lower() or "comp" in a.lower()]');
+-- → ["compositing_node_group","node_tree", ...]
+
+-- 2. What does this method expect? (docstring carries the signature)
+SELECT bpy_eval('bpy.types.NodeTree.nodes.new.__doc__');
+-- → "Add a node to this node tree :type type: str ..."
+
+-- 3. For typed properties, bl_rna is the source of truth
+SELECT bpy_eval('[p.identifier for p in bpy.data.objects["Cube"].modifiers["Subsurf"].bl_rna.properties]');
+
+-- 4. For collections of sub-items, list one and inspect it
+SELECT bpy_eval('[(s.name, s.bl_idname) for s in bpy.context.scene.compositing_node_group.nodes["Render Layers"].outputs]');
+```
+
+When a `.new(...)` or attribute access errors, don't retry with a different guess — go up one level and `dir()` the parent first. The error message tells you *what* failed; introspection tells you *what's available instead*.
+
+This matters because blendersql currently doesn't ship full Python API docs (see GitHub issue #4); until it does, `dir()` + `.__doc__` + `bl_rna.properties` are your docs.
+
+---
+
 ## The functions
 
 ### `bpy_eval(expr)` — evaluate one expression, get JSON back
