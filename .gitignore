@@ -32,3 +32,4 @@ tests/.blender_user_extensions/
 tests/fixtures/test_scene.blend
 data/
 .env
+nocommit/
