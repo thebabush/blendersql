@@ -19,9 +19,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from ._meta import Column
+
 
 class IteratorVTable:
     schema: str = ''
+
+    # Agent-facing metadata. Empty defaults so existing subclasses stay valid
+    # while the per-class migration happens. Populate as you go; query via
+    # the `bsql_tables` / `bsql_columns` introspection vtables. See _meta.py.
+    DESCRIPTION: str = ''
+    AGENT_HINT: str = ''
+    COLUMNS: tuple[Column, ...] = ()
+    RELATED: tuple[str, ...] = ()
+    WRITABLE: bool = False
 
     def snapshot(self) -> list[tuple[Any, ...]]:
         raise NotImplementedError
@@ -84,6 +95,14 @@ class WritableSnapshotVTable:
 
     schema: str = ''
     table_name: str = ''
+
+    # Agent-facing metadata. Same convention as IteratorVTable but WRITABLE
+    # defaults to True for the writable base.
+    DESCRIPTION: str = ''
+    AGENT_HINT: str = ''
+    COLUMNS: tuple[Column, ...] = ()
+    RELATED: tuple[str, ...] = ()
+    WRITABLE: bool = True
 
     def _snapshot(self) -> tuple[list[tuple[Any, ...]], list[Any]]:
         raise NotImplementedError

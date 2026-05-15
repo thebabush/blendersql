@@ -107,3 +107,68 @@ def test_scene_objects_nested_collection_object_included(client) -> None:
     )
     assert r['ok'], r
     assert r['rows'] == [['Scene.002', 'EMPTY', 0, 0]], r['rows']
+
+
+# ---------------------------------------------------------------------------
+# bsql_tables — introspection vtable surfaces class-attr metadata
+
+
+def test_bsql_tables_columns(client) -> None:
+    r = client.query('PRAGMA table_info(bsql_tables)')
+    assert r['ok'], r
+    cols = [row[1] for row in r['rows']]
+    assert cols == ['name', 'writable', 'description', 'agent_hint', 'column_count', 'related']
+
+
+def test_bsql_tables_lists_every_registered_table(client) -> None:
+    # bsql_tables should mirror sqlite_master's table list exactly.
+    a = client.query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+    b = client.query('SELECT name FROM bsql_tables ORDER BY name')
+    assert a['ok'] and b['ok'], (a, b)
+    assert [row[0] for row in a['rows']] == [row[0] for row in b['rows']]
+
+
+def test_bsql_tables_objects_metadata(client) -> None:
+    r = client.query(
+        "SELECT name, writable, description, column_count FROM bsql_tables WHERE name='objects'"
+    )
+    assert r['ok'], r
+    assert len(r['rows']) == 1, r['rows']
+    name, writable, description, column_count = r['rows'][0]
+    assert name == 'objects'
+    assert writable == 1
+    assert 'Scene objects' in description
+    assert column_count == 17
+
+
+def test_bsql_tables_writability_matches_class_hierarchy(client) -> None:
+    # The writable set is whatever the live registry reports — that's the
+    # whole point of bsql_tables (no more hardcoded drift). Sanity-check a
+    # handful of known cases. Note: `node_trees` itself is read-only;
+    # `node_inputs` is the writable vtable in that module.
+    r = client.query(
+        'SELECT name, writable FROM bsql_tables '
+        "WHERE name IN ('objects','materials','modifiers','node_inputs',"
+        "'node_trees','welcome','grep','session_log','bsql_tables') "
+        'ORDER BY name'
+    )
+    assert r['ok'], r
+    by_name = dict(r['rows'])
+    assert by_name['objects'] == 1
+    assert by_name['materials'] == 1
+    assert by_name['modifiers'] == 1
+    assert by_name['node_inputs'] == 1
+    assert by_name['node_trees'] == 0
+    assert by_name['welcome'] == 0
+    assert by_name['grep'] == 0
+    assert by_name['session_log'] == 0
+    assert by_name['bsql_tables'] == 0
+
+
+def test_bsql_tables_unmigrated_classes_have_empty_metadata(client) -> None:
+    # Sanity: classes that haven't been migrated to the COLUMNS metadata yet
+    # still appear, just with column_count=0 and empty description. Once the
+    # rest of the migration lands this test goes away.
+    r = client.query("SELECT description, column_count FROM bsql_tables WHERE name='collections'")
+    assert r['ok'], r
+    assert r['rows'][0] == ['', 0]

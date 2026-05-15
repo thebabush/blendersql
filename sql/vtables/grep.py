@@ -6,6 +6,7 @@ from typing import Any
 
 import apsw
 
+from ._meta import Column
 from .datablocks import iter_named_datablocks
 
 _PATTERN_COL = 0
@@ -23,6 +24,25 @@ _PATTERN_OPS = frozenset(
 
 
 class Grep:
+    # Grep is a special-case vtable: it doesn't inherit from IteratorVTable
+    # because it implements its own pushdown-aware apsw module protocol.
+    # Metadata still needs to be on the class so the introspection layer
+    # (`bsql_tables`) treats it like any other registered vtable.
+    DESCRIPTION = 'Full-text-ish search across every named bpy datablock.'
+    AGENT_HINT = (
+        'Bind ?pattern with LIKE/GLOB on a hidden first column; returns '
+        'matching datablock names plus their kind / parent. Use for ad-hoc '
+        '"find anything named X" queries that span dozens of vtables.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Matched datablock name.'),
+        Column('kind', 'TEXT', hint='Source vtable (objects / materials / ...).'),
+        Column('parent_name', 'TEXT', hint='Parent (for nested items like bones).'),
+        Column('full_name', 'TEXT', hint='Disambiguated name (kind:name).'),
+    )
+    RELATED: tuple[str, ...] = ()
+    WRITABLE = False
+
     schema = (
         'CREATE TABLE grep('
         'pattern TEXT HIDDEN, '

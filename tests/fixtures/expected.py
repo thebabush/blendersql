@@ -21,6 +21,10 @@ EXPECTED: dict[str, int] = {
     'armatures': 1,
     'bones': 2,
     'brushes': 0,
+    # bsql_tables is the introspection vtable — count == number of registered
+    # tables (including itself). Keep this in lockstep with the registry; if
+    # you add a new vtable, this count goes up by 1.
+    'bsql_tables': 77,
     'cache_files': 0,
     'cameras': 1,
     'collection_objects': 1,

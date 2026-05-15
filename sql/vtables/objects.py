@@ -5,6 +5,7 @@ from typing import Any
 import apsw
 import bpy
 
+from ._meta import Column
 from .base import WritableSnapshotVTable
 
 _COLUMNS: tuple[str, ...] = (
@@ -37,6 +38,49 @@ _INSERT_NON_EMPTY_HINT = (
 
 class Objects(WritableSnapshotVTable):
     table_name = 'objects'
+    DESCRIPTION = 'Scene objects: identity, type, transform, parent, first collection.'
+    AGENT_HINT = (
+        "Use for 'all empties', 'objects with no parent', mass renames, and transform updates. "
+        'Writes are fine via UPDATE (name/parent/transforms/hides/rotation_mode); for new objects '
+        'with a data datablock use the add_object() verb (only EMPTY supported via direct INSERT).'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', writable=True, pk=True, hint='Unique within bpy.data.objects.'),
+        Column(
+            'type', 'TEXT', hint='MESH / EMPTY / LIGHT / CAMERA / ARMATURE / CURVE / GPENCIL / ...'
+        ),
+        Column('parent', 'TEXT', writable=True, hint='Name of parent object; NULL for root.'),
+        Column('data', 'TEXT', hint='Name of the wrapped datablock (mesh / light / camera / ...).'),
+        Column(
+            'collection', 'TEXT', hint='First users_collection of the object (NULL if unlinked).'
+        ),
+        Column(
+            'hide_viewport', 'INTEGER', writable=True, hint='Boolean as 0/1; viewport visibility.'
+        ),
+        Column('hide_render', 'INTEGER', writable=True, hint='Boolean as 0/1; render visibility.'),
+        Column('rotation_mode', 'TEXT', writable=True, hint='XYZ / QUATERNION / AXIS_ANGLE / ...'),
+        Column('location_x', 'REAL', writable=True),
+        Column('location_y', 'REAL', writable=True),
+        Column('location_z', 'REAL', writable=True),
+        Column(
+            'rotation_x',
+            'REAL',
+            writable=True,
+            hint='Always Euler-stored; non-XYZ modes need bpy_exec.',
+        ),
+        Column('rotation_y', 'REAL', writable=True),
+        Column('rotation_z', 'REAL', writable=True),
+        Column('scale_x', 'REAL', writable=True),
+        Column('scale_y', 'REAL', writable=True),
+        Column('scale_z', 'REAL', writable=True),
+    )
+    RELATED: tuple[str, ...] = (
+        'scene_objects',
+        'collection_objects',
+        'material_slots',
+        'modifiers',
+        'constraints',
+    )
     schema = (
         'CREATE TABLE objects('
         'name TEXT, '

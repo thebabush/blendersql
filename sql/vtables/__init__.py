@@ -4,8 +4,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ._meta import VTableMeta
+
 if TYPE_CHECKING:
     from ..engine import Engine
+
+
+# Live registry of {table_name: vtable_instance} populated by `_bind()` on every
+# `register_all()`. Read by introspection vtables like `bsql_tables`. The
+# in-process Engine is single-tenant, so a module-level dict is safe; cleared
+# on every fresh registration to avoid leftover entries.
+_REGISTRY: dict[str, VTableMeta] = {}
+
+
+def registry() -> dict[str, VTableMeta]:
+    """Return the {table_name: vtable_instance} registry. Read-only by convention."""
+    return _REGISTRY
 
 
 def register_all(engine: Engine) -> None:
@@ -14,6 +28,7 @@ def register_all(engine: Engine) -> None:
         animation,
         armatures,
         assets,
+        bsql,
         cameras,
         collections,
         constraints,
@@ -38,6 +53,7 @@ def register_all(engine: Engine) -> None:
         welcome,
     )
 
+    _REGISTRY.clear()
     _bind(engine, 'welcome', welcome.Welcome())
     _bind(engine, 'objects', objects.Objects())
     _bind(engine, 'scenes', scenes.Scenes())
@@ -114,16 +130,18 @@ def register_all(engine: Engine) -> None:
     _bind(engine, 'annotations', misc.Annotations())
     _bind(engine, 'grep', grep.Grep())
     _bind(engine, 'session_log', session_log.SessionLog())
+    _bind(engine, 'bsql_tables', bsql.BsqlTables())
 
     engine.conn.createscalarfunction('grep', _grep_scalar, -1, deterministic=False)
 
 
-def _bind(engine: Engine, table_name: str, source: object) -> None:
+def _bind(engine: Engine, table_name: str, source: VTableMeta) -> None:
     module_name = f'blendersql_vt_{table_name}'
     # Vtable sources implement apsw's duck-typed module protocol, not its
     # nominal VTModule type.
     engine.conn.createmodule(module_name, source)  # type: ignore[arg-type]
     engine.conn.execute(f'CREATE VIRTUAL TABLE {table_name} USING {module_name}')
+    _REGISTRY[table_name] = source
 
 
 def _grep_scalar(*args: object) -> str:
