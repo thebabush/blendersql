@@ -5,6 +5,7 @@ from typing import Any
 
 import bpy
 
+from ._meta import Column
 from .base import IteratorVTable
 from .modifiers import _dump_props
 
@@ -52,6 +53,31 @@ _LIGHT_COMMON: frozenset[str] = frozenset(
 
 
 class Lights(IteratorVTable):
+    DESCRIPTION = 'Light datablocks: type, energy, color, shadow/nodes flags, type-specific params.'
+    AGENT_HINT = (
+        'Read-only — mutate via bpy_exec. JOIN objects ON objects.data=lights.name to find '
+        'which object instances each light. Type-specific fields (spot_size, shape, angle, ...) '
+        'live in params_json.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Unique within bpy.data.lights.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('type', 'TEXT', hint='POINT / SUN / SPOT / AREA.'),
+        Column('energy', 'REAL', hint='Emission strength (units vary by engine).'),
+        Column('color_r', 'REAL'),
+        Column('color_g', 'REAL'),
+        Column('color_b', 'REAL'),
+        Column('use_shadow', 'INTEGER', hint='Boolean as 0/1; casts shadows.'),
+        Column('use_nodes', 'INTEGER', hint='Boolean as 0/1; uses a shader node tree.'),
+        Column('diffuse_factor', 'REAL', hint='Diffuse contribution multiplier.'),
+        Column('specular_factor', 'REAL', hint='Specular contribution multiplier.'),
+        Column(
+            'params_json',
+            'TEXT',
+            hint='JSON object of type-specific bl_rna props (spot_size, shape, angle, ...).',
+        ),
+    )
+    RELATED: tuple[str, ...] = ('objects', 'node_trees')
     schema = (
         'CREATE TABLE lights('
         'name TEXT, '

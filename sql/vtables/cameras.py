@@ -5,6 +5,7 @@ from typing import Any
 
 import bpy
 
+from ._meta import Column
 from .base import IteratorVTable
 from .modifiers import _dump_props
 
@@ -52,6 +53,31 @@ _CAMERA_COMMON: frozenset[str] = frozenset(
 
 
 class Cameras(IteratorVTable):
+    DESCRIPTION = 'Camera datablocks: lens, sensor, clip range, DOF basics, ortho scale.'
+    AGENT_HINT = (
+        'Read-only — mutate via bpy_exec. JOIN objects ON objects.data=cameras.name to find '
+        'which object instances each camera, or JOIN scenes ON scenes.camera=objects.name. '
+        'Panorama / shift / background-image fields live in params_json.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Unique within bpy.data.cameras.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('type', 'TEXT', hint='PERSP / ORTHO / PANO.'),
+        Column('lens', 'REAL', hint='Focal length in mm (perspective).'),
+        Column('sensor_width', 'REAL', hint='Sensor width in mm.'),
+        Column('sensor_height', 'REAL', hint='Sensor height in mm.'),
+        Column('clip_start', 'REAL', hint='Near clip distance.'),
+        Column('clip_end', 'REAL', hint='Far clip distance.'),
+        Column('ortho_scale', 'REAL', hint='Ortho frustum scale (ortho only).'),
+        Column('dof_focus_distance', 'REAL', hint='CameraDOFSettings.focus_distance.'),
+        Column('fstop', 'REAL', hint='CameraDOFSettings.aperture_fstop.'),
+        Column(
+            'params_json',
+            'TEXT',
+            hint='JSON object of type-specific bl_rna props (panorama_type, shift_*, fisheye_*).',
+        ),
+    )
+    RELATED: tuple[str, ...] = ('objects', 'scenes')
     schema = (
         'CREATE TABLE cameras('
         'name TEXT, '

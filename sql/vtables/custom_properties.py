@@ -8,6 +8,7 @@ import apsw
 import bpy
 
 from ..functions.jsonify import to_jsonable as _jsonify
+from ._meta import Column
 from .base import WritableSnapshotVTable
 from .datablocks import RESOLVE_CONTAINER as _CONTAINERS
 from .datablocks import iter_named_datablocks
@@ -42,6 +43,50 @@ _UI_COLUMNS: tuple[str, ...] = (
 
 class CustomProperties(WritableSnapshotVTable):
     table_name = 'custom_properties'
+    DESCRIPTION = 'ID-property key/value pairs across every named datablock, with UI metadata.'
+    AGENT_HINT = (
+        'Per-row identity is (datablock_type, datablock_name, key). UPDATE can rename `key` and '
+        'edit value_json / UI fields; cross-datablock moves are blocked (use DELETE + INSERT). '
+        'INSERT requires datablock_type / datablock_name / key / value_json.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column(
+            'datablock_type',
+            'TEXT',
+            writable=True,
+            pk=True,
+            hint='Container kind (objects / materials / ...); immutable on UPDATE.',
+        ),
+        Column(
+            'datablock_name',
+            'TEXT',
+            writable=True,
+            pk=True,
+            hint='Owning datablock name; immutable on UPDATE.',
+        ),
+        Column(
+            'key',
+            'TEXT',
+            writable=True,
+            pk=True,
+            hint='ID-property key; UPDATE may rename if non-colliding.',
+        ),
+        Column(
+            'value_json',
+            'TEXT',
+            writable=True,
+            hint='JSON-encoded value; bool coerces to 0/1 (no IDProp bool type).',
+        ),
+        Column('subtype', 'TEXT', writable=True, hint='UI subtype (NONE / COLOR / FACTOR / ...).'),
+        Column('description', 'TEXT', writable=True, hint='UI tooltip text.'),
+        Column('min', 'REAL', writable=True, hint='UI hard minimum.'),
+        Column('max', 'REAL', writable=True, hint='UI hard maximum.'),
+        Column('soft_min', 'REAL', writable=True, hint='UI soft minimum (slider range).'),
+        Column('soft_max', 'REAL', writable=True, hint='UI soft maximum (slider range).'),
+        Column('step', 'REAL', writable=True, hint='UI step increment.'),
+        Column('default', 'TEXT', writable=True, hint='JSON-encoded default; may be NULL.'),
+    )
+    RELATED: tuple[str, ...] = ()
     schema = (
         'CREATE TABLE custom_properties('
         'datablock_type TEXT, '

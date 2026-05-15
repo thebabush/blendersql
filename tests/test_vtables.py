@@ -169,7 +169,7 @@ def test_bsql_tables_unmigrated_classes_have_empty_metadata(client) -> None:
     # Sanity: classes that haven't been migrated to the COLUMNS metadata yet
     # still appear, just with column_count=0 and empty description. Once the
     # rest of the migration lands this test goes away.
-    r = client.query("SELECT description, column_count FROM bsql_tables WHERE name='lights'")
+    r = client.query("SELECT description, column_count FROM bsql_tables WHERE name='annotations'")
     assert r['ok'], r
     assert r['rows'][0] == ['', 0]
 
@@ -226,8 +226,8 @@ def test_bsql_columns_writability_propagates(client) -> None:
 
 
 def test_bsql_columns_skips_unmigrated_tables(client) -> None:
-    # lights still has empty COLUMNS — must surface zero rows here.
-    r = client.query('SELECT COUNT(*) FROM bsql_columns WHERE "table"=\'lights\'')
+    # annotations still has empty COLUMNS — must surface zero rows here.
+    r = client.query('SELECT COUNT(*) FROM bsql_columns WHERE "table"=\'annotations\'')
     assert r['ok'], r
     assert r['rows'][0][0] == 0
 
@@ -247,6 +247,16 @@ def test_bsql_columns_covers_all_migrated_tables(client) -> None:
         'meshes',
         'mesh_polygons',
         'node_trees',
+        'lights',
+        'cameras',
+        'worlds',
+        'constraints',
+        'custom_properties',
+        'nodes',
+        'node_inputs',
+        'node_outputs',
+        'node_links',
+        'mesh_vertices',
     }
     assert expected_migrated.issubset(tables), (
         f'missing from bsql_columns: {expected_migrated - tables}'

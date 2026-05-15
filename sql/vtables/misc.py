@@ -5,6 +5,7 @@ from typing import Any
 
 import bpy
 
+from ._meta import Column
 from .base import IteratorVTable
 from .modifiers import _dump_props
 
@@ -82,6 +83,21 @@ class LineStyles(IteratorVTable):
 
 
 class Worlds(IteratorVTable):
+    DESCRIPTION = 'World datablocks: nodes flag and base color (background).'
+    AGENT_HINT = (
+        'Read-only — mutate via bpy_exec. JOIN scenes ON scenes.world=worlds.name to find the '
+        'scene-bound world. When use_nodes=1 the actual sky color lives in the node tree '
+        "(JOIN node_trees ON node_trees.owner_type='world' AND node_trees.owner_name=worlds.name)."
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Unique within bpy.data.worlds.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('use_nodes', 'INTEGER', hint='Boolean as 0/1; toggles shader node tree.'),
+        Column('color_r', 'REAL'),
+        Column('color_g', 'REAL'),
+        Column('color_b', 'REAL'),
+    )
+    RELATED: tuple[str, ...] = ('scenes', 'node_trees')
     schema = (
         'CREATE TABLE worlds('
         'name TEXT, '

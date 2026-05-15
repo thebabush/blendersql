@@ -6,6 +6,7 @@ from typing import Any
 import apsw
 import bpy
 
+from ._meta import Column
 from ._params import apply_params_json, parse_params_json
 from .base import WritableSnapshotVTable
 from .modifiers import _dump_props
@@ -40,6 +41,50 @@ _INSERT_HINT = 'INSERT into constraints is not supported; use the add_constraint
 
 class Constraints(WritableSnapshotVTable):
     table_name = 'constraints'
+    DESCRIPTION = 'Object and pose-bone constraints: target binding, influence, packed params.'
+    AGENT_HINT = (
+        'Covers both object.constraints and armature pose_bone.constraints (owner_type '
+        "= 'OBJECT' / 'POSE_BONE'; pose-bone owner_name is 'object/bone'). UPDATE retargets, "
+        'tweaks influence/mute, or edits params_json. INSERT is blocked — use the add_constraint verb.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('owner_type', 'TEXT', pk=True, hint="'OBJECT' or 'POSE_BONE'; part of identifier."),
+        Column(
+            'owner_name',
+            'TEXT',
+            pk=True,
+            hint="Object name, or 'object/bone' for pose-bone owners.",
+        ),
+        Column(
+            'name',
+            'TEXT',
+            writable=True,
+            pk=True,
+            hint='Constraint name on the owner; part of identifier.',
+        ),
+        Column('type', 'TEXT', hint='COPY_LOCATION / TRACK_TO / IK / ... read-only on UPDATE.'),
+        Column(
+            'target',
+            'TEXT',
+            writable=True,
+            hint='Target object name; NULL clears. Errors if constraint has no target.',
+        ),
+        Column(
+            'subtarget',
+            'TEXT',
+            writable=True,
+            hint="Sub-target (e.g. bone name on an armature target); '' / NULL clears.",
+        ),
+        Column('influence', 'REAL', writable=True, hint='Blend factor in [0,1].'),
+        Column('mute', 'INTEGER', writable=True, hint='Boolean as 0/1; disables the constraint.'),
+        Column(
+            'params_json',
+            'TEXT',
+            writable=True,
+            hint='JSON object of type-specific bl_rna props; UPDATE diffs against current.',
+        ),
+    )
+    RELATED: tuple[str, ...] = ('objects',)
     schema = (
         'CREATE TABLE constraints('
         'owner_type TEXT, '

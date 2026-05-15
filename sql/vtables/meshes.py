@@ -85,6 +85,25 @@ class MeshAttributes(IteratorVTable):
 
 
 class MeshVertices(IteratorVTable):
+    DESCRIPTION = 'Per-mesh vertices: position, normal, hide/select flags.'
+    AGENT_HINT = (
+        'Read-only; materialised on every cursor open. JOIN meshes (mesh=meshes.name) for '
+        'totals, or mesh_edges/mesh_polygons via the vertex/loop indices. Mutate via '
+        'bpy_exec / bmesh — SQL-level vertex writes are future work.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('mesh', 'TEXT', pk=True, hint='Owning mesh datablock name.'),
+        Column('index', 'INTEGER', pk=True, hint='0-based vertex index within the mesh.'),
+        Column('x', 'REAL', hint='Local-space coordinate.'),
+        Column('y', 'REAL', hint='Local-space coordinate.'),
+        Column('z', 'REAL', hint='Local-space coordinate.'),
+        Column('normal_x', 'REAL'),
+        Column('normal_y', 'REAL'),
+        Column('normal_z', 'REAL'),
+        Column('hide', 'INTEGER', hint='Boolean as 0/1; hidden in edit mode.'),
+        Column('select', 'INTEGER', hint='Boolean as 0/1; selected in edit mode.'),
+    )
+    RELATED: tuple[str, ...] = ('meshes', 'mesh_edges', 'mesh_polygons', 'mesh_loops')
     schema = (
         'CREATE TABLE mesh_vertices('
         'mesh TEXT, '

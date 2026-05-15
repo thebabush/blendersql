@@ -113,6 +113,27 @@ class NodeTrees(IteratorVTable):
 
 
 class Nodes(IteratorVTable):
+    DESCRIPTION = 'Nodes across every node tree: identity, type, layout, mute/hide flags.'
+    AGENT_HINT = (
+        'Read-only. JOIN node_trees ON node_trees.owner_name=nodes.tree to disambiguate the '
+        'owner. JOIN node_inputs / node_outputs (tree,node) to walk sockets, or node_links '
+        '(tree,from_node/to_node) for connectivity.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('tree', 'TEXT', hint='Owning tree name (node_trees.owner_name).'),
+        Column('name', 'TEXT', hint='Node name; unique within its tree.'),
+        Column('bl_idname', 'TEXT', hint='RNA class id (ShaderNodeBsdfPrincipled, ...).'),
+        Column('type', 'TEXT', hint='High-level type token (BSDF_PRINCIPLED, GROUP, ...).'),
+        Column('location_x', 'REAL'),
+        Column('location_y', 'REAL'),
+        Column('mute', 'INTEGER', hint='Boolean as 0/1; node disabled.'),
+        Column('hide', 'INTEGER', hint='Boolean as 0/1; node collapsed.'),
+        Column('parent', 'TEXT', hint='Name of parent frame node; NULL if unframed.'),
+        Column('label', 'TEXT', hint='Display label; may be empty.'),
+        Column('width', 'REAL', hint='Editor width in pixels.'),
+        Column('height', 'REAL', hint='Editor height in pixels.'),
+    )
+    RELATED: tuple[str, ...] = ('node_trees', 'node_inputs', 'node_outputs', 'node_links')
     schema = (
         'CREATE TABLE nodes('
         'tree TEXT, '
@@ -169,6 +190,35 @@ _NI_COL_INDEX: dict[str, int] = {name: i for i, name in enumerate(_NODE_INPUT_CO
 
 class NodeInputs(WritableSnapshotVTable):
     table_name = 'node_inputs'
+    DESCRIPTION = 'Input sockets on every node: identifier, type, default value, link status.'
+    AGENT_HINT = (
+        'Per-row identity is (tree, node, index). UPDATE default_value_json to retune an '
+        'unlinked socket — other columns are read-only, and linked sockets reject writes. '
+        'INSERT/DELETE are blocked (sockets are defined by the node class).'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('tree', 'TEXT', pk=True, hint='Owning tree name; part of identifier.'),
+        Column('node', 'TEXT', pk=True, hint='Owning node name; part of identifier.'),
+        Column('identifier', 'TEXT', hint='Stable socket identifier from Blender.'),
+        Column(
+            'index',
+            'INTEGER',
+            pk=True,
+            hint='0-based socket index on the node; part of identifier.',
+        ),
+        Column('name', 'TEXT', hint='Socket display name.'),
+        Column('type', 'TEXT', hint='VALUE / VECTOR / RGBA / SHADER / GEOMETRY / ...'),
+        Column(
+            'default_value_json',
+            'TEXT',
+            writable=True,
+            hint='JSON-encoded socket default; vector/color sockets accept a list.',
+        ),
+        Column(
+            'is_linked', 'INTEGER', hint='Boolean as 0/1; linked sockets reject default writes.'
+        ),
+    )
+    RELATED: tuple[str, ...] = ('node_trees', 'nodes', 'node_links', 'node_outputs')
     schema = (
         'CREATE TABLE node_inputs('
         'tree TEXT, '
@@ -224,6 +274,28 @@ class NodeInputs(WritableSnapshotVTable):
 
 
 class NodeOutputs(IteratorVTable):
+    DESCRIPTION = 'Output sockets on every node: identifier, type, default value, link status.'
+    AGENT_HINT = (
+        'Read-only — outputs are computed, not tunable. JOIN node_links '
+        '(from_node,from_socket) to trace what feeds into downstream nodes.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('tree', 'TEXT', hint='Owning tree name.'),
+        Column('node', 'TEXT', hint='Owning node name.'),
+        Column('identifier', 'TEXT', hint='Stable socket identifier from Blender.'),
+        Column('index', 'INTEGER', hint='0-based socket index on the node.'),
+        Column('name', 'TEXT', hint='Socket display name.'),
+        Column('type', 'TEXT', hint='VALUE / VECTOR / RGBA / SHADER / GEOMETRY / ...'),
+        Column(
+            'default_value_json',
+            'TEXT',
+            hint='JSON-encoded socket default if exposed; usually NULL on outputs.',
+        ),
+        Column(
+            'is_linked', 'INTEGER', hint='Boolean as 0/1; whether anything consumes this output.'
+        ),
+    )
+    RELATED: tuple[str, ...] = ('node_trees', 'nodes', 'node_links', 'node_inputs')
     schema = (
         'CREATE TABLE node_outputs('
         'tree TEXT, '
@@ -241,6 +313,22 @@ class NodeOutputs(IteratorVTable):
 
 
 class NodeLinks(IteratorVTable):
+    DESCRIPTION = 'Edges in every node tree: which output drives which input, mute/valid flags.'
+    AGENT_HINT = (
+        'Read-only. JOIN node_trees (tree=node_trees.owner_name) to disambiguate by owner, '
+        'or self-JOIN through (from_node,from_socket)/(to_node,to_socket) to trace paths. '
+        'Mutate via bpy_exec (tree.links.new / .remove).'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('tree', 'TEXT', hint='Owning tree name.'),
+        Column('from_node', 'TEXT', hint='Source node name.'),
+        Column('from_socket', 'TEXT', hint='Source socket display name.'),
+        Column('to_node', 'TEXT', hint='Destination node name.'),
+        Column('to_socket', 'TEXT', hint='Destination socket display name.'),
+        Column('is_muted', 'INTEGER', hint='Boolean as 0/1; link disabled.'),
+        Column('is_valid', 'INTEGER', hint='Boolean as 0/1; Blender accepts the type pairing.'),
+    )
+    RELATED: tuple[str, ...] = ('node_trees', 'nodes', 'node_inputs', 'node_outputs')
     schema = (
         'CREATE TABLE node_links('
         'tree TEXT, '
