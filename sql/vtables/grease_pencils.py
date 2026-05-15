@@ -5,10 +5,30 @@ from typing import Any
 import apsw
 import bpy
 
+from ._meta import Column
 from .base import IteratorVTable, WritableSnapshotVTable
 
 
 class GreasePencils(IteratorVTable):
+    DESCRIPTION = 'Grease Pencil v3 datablocks: layer counts, onion-skin settings, depth order.'
+    AGENT_HINT = (
+        'Top of the GP v3 tree: grease_pencils -> gp_layer_groups + gp_layers -> gp_frames -> '
+        'gp_strokes -> gp_points (+ gp_drawing_attributes). Read-only; mutate via bpy_exec. '
+        'JOIN gp_layers ON gp_layers.gp=grease_pencils.name; material_slots binds to the gp '
+        "datablock just like meshes (objects.data is the gp name when objects.type='GPENCIL')."
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Unique within bpy.data.grease_pencils.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('layer_count', 'INTEGER', hint='len(gp.layers).'),
+        Column('layer_group_count', 'INTEGER', hint='len(gp.layer_groups).'),
+        Column('stroke_depth_order', 'TEXT', hint='2D / 3D — viewport draw ordering.'),
+        Column('onion_factor', 'REAL', hint='Onion-skin opacity factor in [0,1].'),
+        Column('onion_mode', 'TEXT', hint='ABSOLUTE / RELATIVE / SELECTED.'),
+        Column('use_onion_fade', 'INTEGER', hint='Boolean as 0/1; fade onion skins by distance.'),
+        Column('use_onion_loop', 'INTEGER', hint='Boolean as 0/1; loop onion skins past ends.'),
+    )
+    RELATED: tuple[str, ...] = ('gp_layers', 'gp_layer_groups', 'material_slots')
     schema = (
         'CREATE TABLE grease_pencils('
         'name TEXT, '
@@ -42,6 +62,21 @@ class GreasePencils(IteratorVTable):
 
 
 class GpLayerGroups(IteratorVTable):
+    DESCRIPTION = 'Grease Pencil layer groups: nestable folders that hold gp_layers.'
+    AGENT_HINT = (
+        'Read-only sibling of gp_layers; groups are pure organisation (hide/lock cascade to '
+        'their layers). JOIN grease_pencils ON grease_pencils.name=gp_layer_groups.gp; '
+        'JOIN gp_layers ON gp_layers.gp=gp_layer_groups.gp AND gp_layers.parent_group=gp_layer_groups.name. '
+        'parent_group is recursive (a group can sit inside another).'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('gp', 'TEXT', hint='Owning grease_pencils.name.'),
+        Column('name', 'TEXT', hint='Group name; unique within the gp datablock.'),
+        Column('parent_group', 'TEXT', hint='Enclosing group name; NULL for top-level.'),
+        Column('hide', 'INTEGER', hint='Boolean as 0/1; cascades to child layers in the viewport.'),
+        Column('lock', 'INTEGER', hint='Boolean as 0/1; cascades to child layers for editing.'),
+    )
+    RELATED: tuple[str, ...] = ('grease_pencils', 'gp_layers')
     schema = (
         'CREATE TABLE gp_layer_groups('
         'gp TEXT, '
@@ -113,6 +148,47 @@ _GPL_SCALAR_COLS: tuple[tuple[str, str], ...] = (
 class GpLayers(WritableSnapshotVTable):
     table_name = 'gp_layers'
     # tint_color is RGB (3 floats) in GP v3 — no alpha column.
+    DESCRIPTION = 'Grease Pencil layers: per-layer transform, tint, opacity, masking flags.'
+    AGENT_HINT = (
+        'Tree level 2 (grease_pencils -> gp_layers -> gp_frames). PK is (gp, name). UPDATE '
+        'tweaks tint/transform/flags and can rename or reparent into a layer group; INSERT/DELETE '
+        'are blocked (use bpy_exec or the gp_add_layer verb). JOIN gp_frames ON '
+        'gp_frames.gp=gp_layers.gp AND gp_frames.layer=gp_layers.name; JOIN gp_layer_groups '
+        'ON gp_layer_groups.gp=gp_layers.gp AND gp_layer_groups.name=gp_layers.parent_group.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('gp', 'TEXT', pk=True, hint='Owning grease_pencils.name; part of identifier.'),
+        Column('name', 'TEXT', writable=True, pk=True, hint='Layer name; part of identifier.'),
+        Column(
+            'parent_group',
+            'TEXT',
+            writable=True,
+            hint='Enclosing gp_layer_groups.name; NULL for top-level.',
+        ),
+        Column('opacity', 'REAL', writable=True, hint='Layer opacity in [0,1].'),
+        Column('blend_mode', 'TEXT', writable=True, hint='REGULAR / HARDLIGHT / ADD / ...'),
+        Column('tint_color_r', 'REAL', writable=True, hint='RGB tint, no alpha in GP v3.'),
+        Column('tint_color_g', 'REAL', writable=True),
+        Column('tint_color_b', 'REAL', writable=True),
+        Column('tint_factor', 'REAL', writable=True, hint='Tint blend factor in [0,1].'),
+        Column('hide', 'INTEGER', writable=True, hint='Boolean as 0/1; viewport visibility.'),
+        Column('lock', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('use_lights', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('use_masks', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('use_onion_skinning', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('translation_x', 'REAL', writable=True),
+        Column('translation_y', 'REAL', writable=True),
+        Column('translation_z', 'REAL', writable=True),
+        Column('rotation_x', 'REAL', writable=True, hint='Euler radians.'),
+        Column('rotation_y', 'REAL', writable=True),
+        Column('rotation_z', 'REAL', writable=True),
+        Column('scale_x', 'REAL', writable=True),
+        Column('scale_y', 'REAL', writable=True),
+        Column('scale_z', 'REAL', writable=True),
+        Column('pass_index', 'INTEGER', writable=True, hint='Render pass index for compositing.'),
+        Column('frame_count', 'INTEGER', hint='len(layer.frames); read-only.'),
+    )
+    RELATED: tuple[str, ...] = ('grease_pencils', 'gp_layer_groups', 'gp_frames')
     schema = (
         'CREATE TABLE gp_layers('
         'gp TEXT, '

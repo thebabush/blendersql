@@ -5,6 +5,7 @@ from typing import Any
 import apsw
 import bpy
 
+from ._meta import Column
 from .base import IteratorVTable, WritableSnapshotVTable
 
 # gp_points snapshots the full point set every query. AI_TEST.blend (~59k points)
@@ -13,6 +14,23 @@ from .base import IteratorVTable, WritableSnapshotVTable
 
 
 class GpFrames(IteratorVTable):
+    DESCRIPTION = 'Grease Pencil per-layer frames: frame number, keyframe type, stroke count.'
+    AGENT_HINT = (
+        'Tree level 3 (gp_layers -> gp_frames -> gp_strokes). Read-only; mutate via bpy_exec. '
+        'Key is (gp, layer, frame_number). JOIN gp_layers ON gp_layers.gp=gp_frames.gp AND '
+        'gp_layers.name=gp_frames.layer; JOIN gp_strokes ON gp_strokes.gp=gp_frames.gp AND '
+        'gp_strokes.layer=gp_frames.layer AND gp_strokes.frame=gp_frames.frame_number.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('gp', 'TEXT', hint='Owning grease_pencils.name.'),
+        Column('layer', 'TEXT', hint='Owning gp_layers.name.'),
+        Column('frame_number', 'INTEGER', hint='Scene frame number this drawing occupies.'),
+        Column(
+            'keyframe_type', 'TEXT', hint='KEYFRAME / BREAKDOWN / MOVING_HOLD / EXTREME / JITTER.'
+        ),
+        Column('stroke_count', 'INTEGER', hint='len(frame.drawing.strokes).'),
+    )
+    RELATED: tuple[str, ...] = ('gp_layers', 'gp_strokes', 'gp_drawing_attributes')
     schema = (
         'CREATE TABLE gp_frames('
         'gp TEXT, '
@@ -43,6 +61,39 @@ class GpStrokes(WritableSnapshotVTable):
     table_name = 'gp_strokes'
     # curve_type is the underlying INT8 attribute (0=CATMULL_ROM, 1=POLY, 2=BEZIER, 3=NURBS).
     # start_cap / end_cap are integer enums (0=ROUND, 1=FLAT, ...).
+    DESCRIPTION = 'Grease Pencil strokes inside a drawing: curve geometry, fill, caps, material.'
+    AGENT_HINT = (
+        'Tree level 4 (gp_frames -> gp_strokes -> gp_points). PK is (gp, layer, frame, index). '
+        'DELETE works (drawing.remove_strokes by index); INSERT/UPDATE are blocked — use bpy_exec '
+        'or the gp_add_stroke verb. JOIN gp_points ON gp_points.gp=gp_strokes.gp AND '
+        'gp_points.layer=gp_strokes.layer AND gp_points.frame=gp_strokes.frame AND '
+        'gp_points.stroke=gp_strokes."index"; JOIN material_slots ON material_slots.object=<obj> '
+        'AND material_slots.slot_index=gp_strokes.material_index.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('gp', 'TEXT', pk=True, hint='Owning grease_pencils.name.'),
+        Column('layer', 'TEXT', pk=True, hint='Owning gp_layers.name.'),
+        Column('frame', 'INTEGER', pk=True, hint='Owning gp_frames.frame_number.'),
+        Column('index', 'INTEGER', pk=True, hint='Positional index in drawing.strokes.'),
+        Column(
+            'curve_type',
+            'INTEGER',
+            hint='Int8 attribute: 0=CATMULL_ROM, 1=POLY, 2=BEZIER, 3=NURBS.',
+        ),
+        Column('cyclic', 'INTEGER', hint='Boolean as 0/1; closed stroke.'),
+        Column('material_index', 'INTEGER', hint='Slot index into the object material_slots.'),
+        Column('fill_color_r', 'REAL'),
+        Column('fill_color_g', 'REAL'),
+        Column('fill_color_b', 'REAL'),
+        Column('fill_color_a', 'REAL'),
+        Column('fill_opacity', 'REAL', hint='Fill alpha multiplier in [0,1].'),
+        Column('softness', 'REAL', hint='Edge softness in [0,1].'),
+        Column('time_start', 'REAL', hint='Stroke playback start time.'),
+        Column('start_cap', 'INTEGER', hint='Integer enum: 0=ROUND, 1=FLAT, ...'),
+        Column('end_cap', 'INTEGER', hint='Integer enum: 0=ROUND, 1=FLAT, ...'),
+        Column('point_count', 'INTEGER', hint='len(stroke.points).'),
+    )
+    RELATED: tuple[str, ...] = ('gp_frames', 'gp_points', 'gp_drawing_attributes', 'materials')
     schema = (
         'CREATE TABLE gp_strokes('
         'gp TEXT, '
@@ -126,6 +177,32 @@ class GpStrokes(WritableSnapshotVTable):
 
 
 class GpPoints(IteratorVTable):
+    DESCRIPTION = 'Grease Pencil per-stroke points: position, radius, opacity, vertex color.'
+    AGENT_HINT = (
+        'Tree leaf (gp_strokes -> gp_points). Read-only; mutate via bpy_exec. Key extends the '
+        'stroke PK: (gp, layer, frame, stroke, index). JOIN gp_strokes ON gp_strokes.gp=gp_points.gp '
+        'AND gp_strokes.layer=gp_points.layer AND gp_strokes.frame=gp_points.frame AND '
+        'gp_strokes."index"=gp_points.stroke. Snapshots the full point set every query — fine for '
+        'tens of thousands of points, push down on (gp, layer) if it grows further.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('gp', 'TEXT', hint='Owning grease_pencils.name.'),
+        Column('layer', 'TEXT', hint='Owning gp_layers.name.'),
+        Column('frame', 'INTEGER', hint='Owning gp_frames.frame_number.'),
+        Column('stroke', 'INTEGER', hint='Owning gp_strokes."index".'),
+        Column('index', 'INTEGER', hint='Positional index in stroke.points.'),
+        Column('x', 'REAL', hint='Point position X.'),
+        Column('y', 'REAL', hint='Point position Y.'),
+        Column('z', 'REAL', hint='Point position Z.'),
+        Column('radius', 'REAL', hint='Per-point thickness.'),
+        Column('opacity', 'REAL', hint='Per-point alpha in [0,1].'),
+        Column('rotation', 'REAL', hint='Per-point rotation in radians.'),
+        Column('vertex_color_r', 'REAL'),
+        Column('vertex_color_g', 'REAL'),
+        Column('vertex_color_b', 'REAL'),
+        Column('vertex_color_a', 'REAL'),
+    )
+    RELATED: tuple[str, ...] = ('gp_strokes',)
     schema = (
         'CREATE TABLE gp_points('
         'gp TEXT, '
@@ -175,6 +252,22 @@ class GpPoints(IteratorVTable):
 
 
 class GpDrawingAttributes(IteratorVTable):
+    DESCRIPTION = 'Generic geometry attributes on each GP drawing: domain (POINT/CURVE) + dtype.'
+    AGENT_HINT = (
+        'Per-drawing attribute catalog — one row per (gp, layer, frame, name). domain is POINT '
+        '(per gp_point) or CURVE (per gp_stroke). Read-only metadata; values stay on the bpy '
+        'attribute object. JOIN gp_frames ON gp_frames.gp=gp_drawing_attributes.gp AND '
+        'gp_frames.layer=gp_drawing_attributes.layer AND gp_frames.frame_number=gp_drawing_attributes.frame.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('gp', 'TEXT', hint='Owning grease_pencils.name.'),
+        Column('layer', 'TEXT', hint='Owning gp_layers.name.'),
+        Column('frame', 'INTEGER', hint='Owning gp_frames.frame_number.'),
+        Column('name', 'TEXT', hint='Attribute name on the drawing.'),
+        Column('domain', 'TEXT', hint='POINT (per gp_point) or CURVE (per gp_stroke).'),
+        Column('data_type', 'TEXT', hint='FLOAT / INT / FLOAT_VECTOR / FLOAT_COLOR / ...'),
+    )
+    RELATED: tuple[str, ...] = ('gp_frames', 'gp_strokes')
     schema = (
         'CREATE TABLE gp_drawing_attributes('
         'gp TEXT, '

@@ -268,6 +268,14 @@ def test_bsql_columns_covers_all_migrated_tables(client) -> None:
         'drivers',
         'driver_variables',
         'driver_targets',
+        'grease_pencils',
+        'gp_layer_groups',
+        'gp_layers',
+        'gp_frames',
+        'gp_strokes',
+        'gp_points',
+        'gp_drawing_attributes',
+        'material_gp_settings',
     }
     assert expected_migrated.issubset(tables), (
         f'missing from bsql_columns: {expected_migrated - tables}'

@@ -5,6 +5,7 @@ from typing import Any
 import apsw
 import bpy
 
+from ._meta import Column
 from .base import WritableSnapshotVTable
 
 # `material.grease_pencil` is a MaterialGPencilStyle in 5.1 (GP v3 kept the
@@ -93,6 +94,67 @@ _BOOL_COLS: frozenset[str] = frozenset(
 
 class MaterialGpSettings(WritableSnapshotVTable):
     table_name = 'material_gp_settings'
+    DESCRIPTION = (
+        'Grease Pencil style settings on each GP material: stroke/fill colors, mix, texture, flags.'
+    )
+    AGENT_HINT = (
+        'One row per material with is_grease_pencil=1 (PK is material name). UPDATE tweaks colors, '
+        'styles, texture transform, and flags. INSERT is blocked — flip a material to GP via '
+        'bpy.data.materials.create_gpencil_data(mat) first; DELETE is blocked too (drop the material '
+        'instead). JOIN materials ON materials.name=material_gp_settings.material; mix_color is RGBA '
+        '(4 floats) in GP v3 while tint_color on gp_layers is RGB (3 floats) — easy to confuse.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column(
+            'material',
+            'TEXT',
+            pk=True,
+            hint='Owning materials.name; read-only identifier (and PK).',
+        ),
+        Column('mode', 'TEXT', writable=True, hint='LINE / DOTS / SQUARES.'),
+        Column('color_r', 'REAL', writable=True, hint='Stroke RGBA.'),
+        Column('color_g', 'REAL', writable=True),
+        Column('color_b', 'REAL', writable=True),
+        Column('color_a', 'REAL', writable=True),
+        Column('fill_color_r', 'REAL', writable=True, hint='Fill RGBA.'),
+        Column('fill_color_g', 'REAL', writable=True),
+        Column('fill_color_b', 'REAL', writable=True),
+        Column('fill_color_a', 'REAL', writable=True),
+        Column('mix_color_r', 'REAL', writable=True, hint='Mix RGBA (4 floats in GP v3).'),
+        Column('mix_color_g', 'REAL', writable=True),
+        Column('mix_color_b', 'REAL', writable=True),
+        Column('mix_color_a', 'REAL', writable=True),
+        Column('stroke_style', 'TEXT', writable=True, hint='SOLID / TEXTURE.'),
+        Column('fill_style', 'TEXT', writable=True, hint='SOLID / GRADIENT / TEXTURE / PATTERN.'),
+        Column(
+            'alignment_mode',
+            'TEXT',
+            writable=True,
+            hint='PATH / OBJECT / FIXED — dot/square alignment.',
+        ),
+        Column('alignment_rotation', 'REAL', writable=True, hint='Radians.'),
+        Column('mix_factor', 'REAL', writable=True, hint='Fill mix factor in [0,1].'),
+        Column('mix_stroke_factor', 'REAL', writable=True, hint='Stroke mix factor in [0,1].'),
+        Column('gradient_type', 'TEXT', writable=True, hint='LINEAR / RADIAL.'),
+        Column('texture_angle', 'REAL', writable=True, hint='Radians.'),
+        Column('texture_scale_x', 'REAL', writable=True),
+        Column('texture_scale_y', 'REAL', writable=True),
+        Column('texture_offset_x', 'REAL', writable=True),
+        Column('texture_offset_y', 'REAL', writable=True),
+        Column('texture_clamp', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('pass_index', 'INTEGER', writable=True, hint='Render pass index.'),
+        Column('pixel_size', 'REAL', writable=True, hint='Stroke pixel size multiplier.'),
+        Column('show_stroke', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('show_fill', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('use_fill_holdout', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('use_stroke_holdout', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('use_overlap_strokes', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('flip', 'INTEGER', writable=True, hint='Boolean as 0/1; flips gradient.'),
+        Column('ghost', 'INTEGER', writable=True, hint='Boolean as 0/1; hide in onion skin.'),
+        Column('hide', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('lock', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+    )
+    RELATED: tuple[str, ...] = ('materials',)
     schema = (
         'CREATE TABLE material_gp_settings('
         'material TEXT, '
