@@ -5,6 +5,7 @@ from typing import Any
 import apsw
 import bpy
 
+from ._meta import Column
 from .base import IteratorVTable, WritableSnapshotVTable
 
 # 5.1 layered Action: every action has slots + layers; layers hold strips; strips
@@ -19,6 +20,32 @@ from .base import IteratorVTable, WritableSnapshotVTable
 
 
 class Actions(IteratorVTable):
+    DESCRIPTION = 'Action datablocks: frame range, slot/layer counts, user refcount.'
+    AGENT_HINT = (
+        'Top of the layered-action tree: action -> slots + layers -> strips -> channelbags -> '
+        'fcurves -> keyframes. Read-only; mutate via bpy_exec. JOIN action_slots / action_layers '
+        'ON action=actions.name; animation_data.action also references actions.name.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Unique within bpy.data.actions.'),
+        Column('is_action_layered', 'INTEGER', hint='Always 1 in Blender 5.1.'),
+        Column('is_action_legacy', 'INTEGER', hint='1 only if action has no layers and no slots.'),
+        Column('frame_start', 'REAL', hint='Manual frame range start (use_frame_range only).'),
+        Column('frame_end', 'REAL', hint='Manual frame range end.'),
+        Column('use_cyclic', 'INTEGER', hint='Boolean as 0/1; cyclic playback hint.'),
+        Column('use_frame_range', 'INTEGER', hint='Boolean as 0/1; honour frame_start/end.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('slot_count', 'INTEGER', hint='len(action.slots); 5.1 slot-per-target model.'),
+        Column('layer_count', 'INTEGER', hint='len(action.layers); usually 1 in 5.1.'),
+    )
+    RELATED: tuple[str, ...] = (
+        'action_slots',
+        'action_layers',
+        'action_strips',
+        'action_channelbags',
+        'fcurves',
+        'animation_data',
+    )
     schema = (
         'CREATE TABLE actions('
         'name TEXT, '
@@ -56,6 +83,30 @@ class Actions(IteratorVTable):
 class ActionSlots(IteratorVTable):
     # ActionSlot.users is a method returning the list of user datablocks; we
     # surface its length to match the rest of the schema's `users` column.
+    DESCRIPTION = 'Per-action slots: target id-type binding, identifier, handle.'
+    AGENT_HINT = (
+        'Each slot binds one action to one target datablock kind. JOIN actions ON '
+        'actions.name=action_slots.action; animation_data.action_slot=action_slots.identifier '
+        'AND animation_data.action=action_slots.action picks the active slot. Handle is the '
+        'durable join key to channelbags (animation_data.action_slot_handle).'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('action', 'TEXT', hint='Owning action name; JOIN actions.name.'),
+        Column(
+            'identifier',
+            'TEXT',
+            hint="Internal slot id (e.g. 'OBCube'); join key from animation_data.",
+        ),
+        Column('name_display', 'TEXT', hint='User-facing slot name (without id-type prefix).'),
+        Column(
+            'target_id_type',
+            'TEXT',
+            hint='OBJECT / MATERIAL / NODETREE / ... — what this slot animates.',
+        ),
+        Column('handle', 'INTEGER', hint='Stable integer handle; channelbags key off this.'),
+        Column('users', 'INTEGER', hint='Number of datablocks bound to this slot.'),
+    )
+    RELATED: tuple[str, ...] = ('actions', 'action_channelbags', 'animation_data')
     schema = (
         'CREATE TABLE action_slots('
         'action TEXT, '
@@ -88,6 +139,18 @@ class ActionSlots(IteratorVTable):
 
 
 class ActionLayers(IteratorVTable):
+    DESCRIPTION = 'Per-action layers: positional list that holds strips.'
+    AGENT_HINT = (
+        'Tree level 2 (actions -> action_layers -> action_strips). Usually one layer per action '
+        'in 5.1. JOIN actions ON actions.name=action_layers.action; action_strips joins on '
+        '(action, layer).'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('action', 'TEXT', hint='Owning action name.'),
+        Column('name', 'TEXT', hint='Layer name; unique within the action.'),
+        Column('strip_count', 'INTEGER', hint='len(layer.strips).'),
+    )
+    RELATED: tuple[str, ...] = ('actions', 'action_strips')
     schema = 'CREATE TABLE action_layers(action TEXT, name TEXT, strip_count INTEGER)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:
@@ -101,6 +164,20 @@ class ActionLayers(IteratorVTable):
 class ActionStrips(IteratorVTable):
     # Strips have no name in 5.1; positional index is the only identity. They
     # also have no frame_start/frame_end — those live on the layer / action.
+    DESCRIPTION = 'Per-layer strips: positional, untyped-by-name, host the channelbags.'
+    AGENT_HINT = (
+        'Tree level 3 (action_layers -> action_strips -> action_channelbags). Strips have no '
+        'name in 5.1 — key by (action, layer, strip_index). JOIN action_layers ON '
+        'action_layers.action=action_strips.action AND action_layers.name=action_strips.layer.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('action', 'TEXT', hint='Owning action name.'),
+        Column('layer', 'TEXT', hint='Owning layer name.'),
+        Column('strip_index', 'INTEGER', hint='Positional index within layer.strips.'),
+        Column('type', 'TEXT', hint='Strip type (KEYFRAME / ...).'),
+        Column('channelbag_count', 'INTEGER', hint='len(strip.channelbags).'),
+    )
+    RELATED: tuple[str, ...] = ('action_layers', 'action_channelbags')
     schema = (
         'CREATE TABLE action_strips('
         'action TEXT, '
@@ -123,6 +200,28 @@ class ActionChannelbags(IteratorVTable):
     # Channelbags are keyed by slot_handle within a strip; we also surface the
     # human-friendly slot identifier (e.g. 'OBProbeCube') for joins from
     # animation_data.action_slot.
+    DESCRIPTION = 'Per-strip channelbags: slot-keyed buckets of fcurves.'
+    AGENT_HINT = (
+        'Tree level 4 (action_strips -> action_channelbags -> fcurves). Each channelbag binds '
+        'a slot to its fcurves; key is (action, layer, strip_index, slot_handle). JOIN '
+        'animation_data ON animation_data.action_slot_handle=action_channelbags.slot_handle '
+        'AND animation_data.action=action_channelbags.action to find which datablocks drive '
+        'this bag. fcurves.channelbag is the slot_identifier.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('action', 'TEXT', hint='Owning action name.'),
+        Column('layer', 'TEXT', hint='Owning layer name.'),
+        Column('strip_index', 'INTEGER', hint='Owning strip index.'),
+        Column('slot_handle', 'INTEGER', hint='Stable handle linking back to action_slots.handle.'),
+        Column(
+            'slot_identifier',
+            'TEXT',
+            hint="Slot identifier (e.g. 'OBCube'); fcurves.channelbag uses this.",
+        ),
+        Column('fcurve_count', 'INTEGER', hint='len(channelbag.fcurves).'),
+        Column('group_count', 'INTEGER', hint='len(channelbag.groups).'),
+    )
+    RELATED: tuple[str, ...] = ('action_strips', 'action_slots', 'fcurves', 'animation_data')
     schema = (
         'CREATE TABLE action_channelbags('
         'action TEXT, '
@@ -182,6 +281,55 @@ class FCurves(WritableSnapshotVTable):
     # but has_driver is still a real RNA attribute so we surface it. The
     # composite key (action, layer, strip_index, channelbag, fcurve_index) joins
     # naturally to `keyframes`. `channelbag` is the slot identifier.
+    DESCRIPTION = 'Channelbag f-curves: per-property animation curves with keyframes.'
+    AGENT_HINT = (
+        'Tree level 5 (action_channelbags -> fcurves -> keyframes). PK is composite: '
+        '(action, layer, strip_index, channelbag, fcurve_index). UPDATE only tweaks '
+        'extrapolation/mute/hide/lock; INSERT needs data_path. Channelbag column is the slot '
+        'identifier — JOIN action_channelbags ON action_channelbags.slot_identifier=fcurves.channelbag.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('action', 'TEXT', pk=True, hint='Owning action name; part of identifier.'),
+        Column('layer', 'TEXT', pk=True, hint='Owning layer name; part of identifier.'),
+        Column('strip_index', 'INTEGER', pk=True, hint='Owning strip index; part of identifier.'),
+        Column(
+            'channelbag',
+            'TEXT',
+            pk=True,
+            hint='Slot identifier of the channelbag; part of identifier.',
+        ),
+        Column(
+            'fcurve_index',
+            'INTEGER',
+            pk=True,
+            hint='Positional index in channelbag.fcurves; part of identifier.',
+        ),
+        Column(
+            'data_path',
+            'TEXT',
+            writable=True,
+            hint="RNA path (e.g. 'location'); INSERT-only, immutable on UPDATE.",
+        ),
+        Column(
+            'array_index', 'INTEGER', writable=True, hint='Vector component index; INSERT-only.'
+        ),
+        Column('extrapolation', 'TEXT', writable=True, hint='CONSTANT / LINEAR.'),
+        Column('keyframe_count', 'INTEGER', hint='len(fcurve.keyframe_points); read-only.'),
+        Column('mute', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column('hide', 'INTEGER', writable=True, hint='Boolean as 0/1 (UI-only).'),
+        Column('lock', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
+        Column(
+            'group', 'TEXT', writable=True, hint='Group name; INSERT-only, immutable on UPDATE.'
+        ),
+        Column(
+            'has_driver',
+            'INTEGER',
+            hint='Always 0 for channelbag fcurves (drivers live on animation_data).',
+        ),
+        Column('is_empty', 'INTEGER', hint='Boolean as 0/1; read-only.'),
+        Column('is_valid', 'INTEGER', hint='Boolean as 0/1; read-only.'),
+    )
+    RELATED: tuple[str, ...] = ('action_channelbags', 'keyframes', 'actions')
     schema = (
         'CREATE TABLE fcurves('
         'action TEXT, '
@@ -310,6 +458,48 @@ _KF_ENUM_COLS: tuple[tuple[str, str], ...] = (
 
 class Keyframes(WritableSnapshotVTable):
     table_name = 'keyframes'
+    DESCRIPTION = 'F-curve keyframe points: (frame,value) + interpolation + bezier handles.'
+    AGENT_HINT = (
+        'Tree leaf (fcurves -> keyframes). PK is (action, layer, strip_index, channelbag, '
+        'fcurve_index, index). UPDATE tweaks frame/value/interpolation/easing/handles/type; '
+        'PK columns are read-only. INSERT requires fcurve_index + frame + value. JOIN fcurves '
+        'on the five-tuple key. Re-sorts after INSERT, so the returned index may shift.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('action', 'TEXT', pk=True, hint='Owning action name.'),
+        Column('layer', 'TEXT', pk=True, hint='Owning layer name.'),
+        Column('strip_index', 'INTEGER', pk=True, hint='Owning strip index.'),
+        Column('channelbag', 'TEXT', pk=True, hint='Slot identifier of the channelbag.'),
+        Column('fcurve_index', 'INTEGER', pk=True, hint='Owning fcurve index.'),
+        Column('index', 'INTEGER', pk=True, hint='Positional index in fcurve.keyframe_points.'),
+        Column('frame', 'REAL', writable=True, hint='X coordinate (kp.co[0]).'),
+        Column('value', 'REAL', writable=True, hint='Y coordinate (kp.co[1]).'),
+        Column('interpolation', 'TEXT', writable=True, hint='CONSTANT / LINEAR / BEZIER / ...'),
+        Column('easing', 'TEXT', writable=True, hint='AUTO / EASE_IN / EASE_OUT / ...'),
+        Column('handle_left_x', 'REAL', writable=True, hint='Left bezier handle X.'),
+        Column('handle_left_y', 'REAL', writable=True, hint='Left bezier handle Y.'),
+        Column('handle_right_x', 'REAL', writable=True, hint='Right bezier handle X.'),
+        Column('handle_right_y', 'REAL', writable=True, hint='Right bezier handle Y.'),
+        Column(
+            'handle_left_type',
+            'TEXT',
+            writable=True,
+            hint='FREE / VECTOR / ALIGNED / AUTO / AUTO_CLAMPED.',
+        ),
+        Column(
+            'handle_right_type',
+            'TEXT',
+            writable=True,
+            hint='FREE / VECTOR / ALIGNED / AUTO / AUTO_CLAMPED.',
+        ),
+        Column(
+            'type',
+            'TEXT',
+            writable=True,
+            hint='KEYFRAME / BREAKDOWN / MOVING_HOLD / EXTREME / JITTER / GENERATED.',
+        ),
+    )
+    RELATED: tuple[str, ...] = ('fcurves',)
     schema = (
         'CREATE TABLE keyframes('
         'action TEXT, '

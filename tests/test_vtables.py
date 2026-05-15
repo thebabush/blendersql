@@ -257,6 +257,17 @@ def test_bsql_columns_covers_all_migrated_tables(client) -> None:
         'node_outputs',
         'node_links',
         'mesh_vertices',
+        'actions',
+        'action_slots',
+        'action_layers',
+        'action_strips',
+        'action_channelbags',
+        'fcurves',
+        'keyframes',
+        'animation_data',
+        'drivers',
+        'driver_variables',
+        'driver_targets',
     }
     assert expected_migrated.issubset(tables), (
         f'missing from bsql_columns: {expected_migrated - tables}'
