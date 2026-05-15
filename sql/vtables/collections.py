@@ -4,10 +4,28 @@ from typing import Any
 
 import bpy
 
+from ._meta import Column
 from .base import IteratorVTable
 
 
 class Collections(IteratorVTable):
+    DESCRIPTION = 'Collection hierarchy: parent link, visibility, child/object counts.'
+    AGENT_HINT = (
+        'Walk the collection tree via parent_collection (NULL for scene-master roots). '
+        'JOIN collection_objects (collection=collections.name) to expand objects, or '
+        'scene_objects for the flattened recursive view per scene.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', pk=True, hint='Unique within bpy.data.collections.'),
+        Column(
+            'parent_collection', 'TEXT', hint='Name of parent collection; NULL for scene roots.'
+        ),
+        Column('hide_viewport', 'INTEGER', hint='Boolean as 0/1; viewport visibility.'),
+        Column('hide_render', 'INTEGER', hint='Boolean as 0/1; render visibility.'),
+        Column('child_count', 'INTEGER', hint='Number of direct child collections.'),
+        Column('object_count', 'INTEGER', hint='Number of directly linked objects.'),
+    )
+    RELATED: tuple[str, ...] = ('collection_objects', 'scene_objects', 'objects')
     schema = (
         'CREATE TABLE collections('
         'name TEXT, '

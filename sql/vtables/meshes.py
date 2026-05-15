@@ -4,6 +4,7 @@ from typing import Any
 
 import bpy
 
+from ._meta import Column
 from .base import IteratorVTable
 
 # mesh_vertices / mesh_edges / mesh_polygons / mesh_loops / mesh_uvs materialise
@@ -13,6 +14,32 @@ from .base import IteratorVTable
 
 
 class Meshes(IteratorVTable):
+    DESCRIPTION = 'Mesh datablocks: vertex/edge/polygon/loop counts, UV+material counts.'
+    AGENT_HINT = (
+        'Use for shape summary and refcount audits; the per-element vtables '
+        '(mesh_vertices / mesh_edges / mesh_polygons / mesh_loops / mesh_uvs / '
+        'mesh_attributes) materialize the full geometry on cursor open — cheap for '
+        'small fixtures, future BestIndex pushdown candidate for production scenes.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', pk=True, hint='Unique within bpy.data.meshes.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('vertex_count', 'INTEGER', hint='len(mesh.vertices).'),
+        Column('edge_count', 'INTEGER', hint='len(mesh.edges).'),
+        Column('polygon_count', 'INTEGER', hint='len(mesh.polygons).'),
+        Column('loop_count', 'INTEGER', hint='len(mesh.loops); sum of polygon corners.'),
+        Column('uv_layer_count', 'INTEGER', hint='len(mesh.uv_layers).'),
+        Column('material_count', 'INTEGER', hint='len(mesh.materials).'),
+    )
+    RELATED: tuple[str, ...] = (
+        'mesh_vertices',
+        'mesh_edges',
+        'mesh_polygons',
+        'mesh_loops',
+        'mesh_uvs',
+        'mesh_attributes',
+        'objects',
+    )
     schema = (
         'CREATE TABLE meshes('
         'name TEXT, '
@@ -129,6 +156,29 @@ class MeshEdges(IteratorVTable):
 
 
 class MeshPolygons(IteratorVTable):
+    DESCRIPTION = 'Per-mesh polygons (faces): material index, geometry, flags.'
+    AGENT_HINT = (
+        'Read-only; materialised on every cursor open. JOIN meshes (mesh=meshes.name) '
+        'and mesh_loops (mesh,index pairs via loop_total) for full topology. '
+        'Mutate via bpy_exec / bmesh — SQL writes here would need a careful design.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('mesh', 'TEXT', pk=True, hint='Owning mesh datablock name.'),
+        Column('index', 'INTEGER', pk=True, hint='0-based polygon index within the mesh.'),
+        Column('material_index', 'INTEGER', hint='Slot index into object.material_slots.'),
+        Column('vertex_count', 'INTEGER', hint='Number of corners (loop_total).'),
+        Column('area', 'REAL', hint='Face area in object-local units.'),
+        Column('normal_x', 'REAL'),
+        Column('normal_y', 'REAL'),
+        Column('normal_z', 'REAL'),
+        Column('center_x', 'REAL'),
+        Column('center_y', 'REAL'),
+        Column('center_z', 'REAL'),
+        Column('use_smooth', 'INTEGER', hint='Boolean as 0/1; smooth shading.'),
+        Column('hide', 'INTEGER', hint='Boolean as 0/1; hidden in edit mode.'),
+        Column('select', 'INTEGER', hint='Boolean as 0/1; selected in edit mode.'),
+    )
+    RELATED: tuple[str, ...] = ('meshes', 'mesh_loops', 'mesh_vertices', 'mesh_edges')
     schema = (
         'CREATE TABLE mesh_polygons('
         'mesh TEXT, '

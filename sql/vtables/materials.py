@@ -5,6 +5,7 @@ from typing import Any
 import apsw
 import bpy
 
+from ._meta import Column
 from .base import WritableSnapshotVTable
 
 _COLUMNS: tuple[str, ...] = (
@@ -19,6 +20,29 @@ _COL_INDEX: dict[str, int] = {name: i for i, name in enumerate(_COLUMNS)}
 
 class Materials(WritableSnapshotVTable):
     table_name = 'materials'
+    DESCRIPTION = 'Material datablocks: nodes flag, GP flag, surface render method.'
+    AGENT_HINT = (
+        'Use for material renames, toggling use_nodes, or picking the EEVEE render method. '
+        'JOIN material_slots ON material_slots.material=materials.name to find which '
+        'objects use a material. is_grease_pencil is read-only after INSERT.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', writable=True, pk=True, hint='Unique within bpy.data.materials.'),
+        Column('users', 'INTEGER', hint='Refcount across the file; read-only.'),
+        Column('use_nodes', 'INTEGER', writable=True, hint='Boolean as 0/1; toggles node tree.'),
+        Column(
+            'is_grease_pencil',
+            'INTEGER',
+            hint='Boolean as 0/1; settable on INSERT only (datablock restructure).',
+        ),
+        Column(
+            'surface_render_method',
+            'TEXT',
+            writable=True,
+            hint='EEVEE: DITHERED / BLENDED.',
+        ),
+    )
+    RELATED: tuple[str, ...] = ('material_slots', 'objects', 'node_trees')
     schema = (
         'CREATE TABLE materials('
         'name TEXT, '
@@ -133,6 +157,26 @@ class MaterialSlots(WritableSnapshotVTable):
     """
 
     table_name = 'material_slots'
+    DESCRIPTION = 'Per-object material slots: which material is bound at each slot index.'
+    AGENT_HINT = (
+        'JOIN objects (object=objects.name) and materials (material=materials.name) to '
+        'map render-time material assignment. UPDATE rebinds slot.material; INSERT/DELETE '
+        'are blocked (would need to remap polygon material_index).'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('object', 'TEXT', pk=True, hint='Owning object name; part of the identifier.'),
+        Column(
+            'slot_index',
+            'INTEGER',
+            pk=True,
+            hint='0-based slot index on the object; part of the identifier.',
+        ),
+        Column(
+            'material', 'TEXT', writable=True, hint='Bound material name; NULL clears the slot.'
+        ),
+        Column('link', 'TEXT', hint="'DATA' or 'OBJECT' — where the slot is stored."),
+    )
+    RELATED: tuple[str, ...] = ('objects', 'materials')
     schema = (
         'CREATE TABLE material_slots(object TEXT, slot_index INTEGER, material TEXT, link TEXT)'
     )

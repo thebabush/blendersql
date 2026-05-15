@@ -6,6 +6,7 @@ from typing import Any
 import apsw
 import bpy
 
+from ._meta import Column
 from ._params import apply_params_json, parse_params_json
 from .base import WritableSnapshotVTable
 
@@ -34,6 +35,32 @@ _INSERT_HINT = 'INSERT into modifiers is not supported; use the add_modifier ver
 
 class Modifiers(WritableSnapshotVTable):
     table_name = 'modifiers'
+    DESCRIPTION = 'Per-object modifier stack with type and packed parameters.'
+    AGENT_HINT = (
+        "Use to inspect or tweak modifier params; tune via UPDATE on params_json (it's a "
+        'JSON blob of every non-common bl_rna prop). JOIN objects (object=objects.name) for '
+        'object context. INSERT is blocked — use the add_modifier verb to create one.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('object', 'TEXT', pk=True, hint='Owning object name; part of the identifier.'),
+        Column(
+            'name',
+            'TEXT',
+            writable=True,
+            pk=True,
+            hint='Modifier name on the object; part of the identifier.',
+        ),
+        Column('type', 'TEXT', hint='SUBSURF / ARRAY / MIRROR / BEVEL / ... read-only.'),
+        Column('show_viewport', 'INTEGER', writable=True, hint='Boolean as 0/1; viewport display.'),
+        Column('show_render', 'INTEGER', writable=True, hint='Boolean as 0/1; render display.'),
+        Column(
+            'params_json',
+            'TEXT',
+            writable=True,
+            hint='JSON object of type-specific bl_rna props; UPDATE diffs against current.',
+        ),
+    )
+    RELATED: tuple[str, ...] = ('objects',)
     schema = (
         'CREATE TABLE modifiers('
         'object TEXT, '

@@ -169,6 +169,85 @@ def test_bsql_tables_unmigrated_classes_have_empty_metadata(client) -> None:
     # Sanity: classes that haven't been migrated to the COLUMNS metadata yet
     # still appear, just with column_count=0 and empty description. Once the
     # rest of the migration lands this test goes away.
-    r = client.query("SELECT description, column_count FROM bsql_tables WHERE name='collections'")
+    r = client.query("SELECT description, column_count FROM bsql_tables WHERE name='lights'")
     assert r['ok'], r
     assert r['rows'][0] == ['', 0]
+
+
+# ---------------------------------------------------------------------------
+# bsql_columns — per-column introspection over the same metadata pipeline
+
+
+def test_bsql_columns_schema(client) -> None:
+    r = client.query('PRAGMA table_info(bsql_columns)')
+    assert r['ok'], r
+    cols = [row[1] for row in r['rows']]
+    assert cols == ['table', 'name', 'type', 'writable', 'pk', 'hint']
+
+
+def test_bsql_columns_lists_objects_columns(client) -> None:
+    r = client.query('SELECT name FROM bsql_columns WHERE "table"=\'objects\' ORDER BY rowid')
+    assert r['ok'], r
+    names = [row[0] for row in r['rows']]
+    assert names == [
+        'name',
+        'type',
+        'parent',
+        'data',
+        'collection',
+        'hide_viewport',
+        'hide_render',
+        'rotation_mode',
+        'location_x',
+        'location_y',
+        'location_z',
+        'rotation_x',
+        'rotation_y',
+        'rotation_z',
+        'scale_x',
+        'scale_y',
+        'scale_z',
+    ]
+    assert len(names) == 17
+
+
+def test_bsql_columns_writability_propagates(client) -> None:
+    r = client.query(
+        'SELECT name, writable FROM bsql_columns '
+        "WHERE \"table\"='objects' AND name IN ('name','type','parent','data','location_x')"
+    )
+    assert r['ok'], r
+    by_name = dict(r['rows'])
+    assert by_name['name'] == 1
+    assert by_name['type'] == 0
+    assert by_name['parent'] == 1
+    assert by_name['data'] == 0
+    assert by_name['location_x'] == 1
+
+
+def test_bsql_columns_skips_unmigrated_tables(client) -> None:
+    # lights still has empty COLUMNS — must surface zero rows here.
+    r = client.query('SELECT COUNT(*) FROM bsql_columns WHERE "table"=\'lights\'')
+    assert r['ok'], r
+    assert r['rows'][0][0] == 0
+
+
+def test_bsql_columns_covers_all_migrated_tables(client) -> None:
+    r = client.query('SELECT DISTINCT "table" FROM bsql_columns')
+    assert r['ok'], r
+    tables = {row[0] for row in r['rows']}
+    expected_migrated = {
+        'objects',
+        'grep',
+        'materials',
+        'material_slots',
+        'modifiers',
+        'collections',
+        'scenes',
+        'meshes',
+        'mesh_polygons',
+        'node_trees',
+    }
+    assert expected_migrated.issubset(tables), (
+        f'missing from bsql_columns: {expected_migrated - tables}'
+    )

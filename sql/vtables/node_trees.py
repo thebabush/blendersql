@@ -8,6 +8,7 @@ import apsw
 import bpy
 
 from ..functions.jsonify import to_jsonable
+from ._meta import Column
 from .base import IteratorVTable, WritableSnapshotVTable
 
 # `tree` identity is the owner's bare name (material/world/light/linestyle/scene)
@@ -46,6 +47,43 @@ def iter_trees() -> Iterator[tuple[str, str, Any]]:
 
 
 class NodeTrees(IteratorVTable):
+    DESCRIPTION = 'Every node tree in the file: standalone groups plus embedded trees.'
+    AGENT_HINT = (
+        'Enumerates node trees across node_groups, materials, worlds, lights, linestyles, '
+        'and scene compositors. owner_type tells you which kind. JOIN nodes / node_links / '
+        'node_inputs / node_outputs (tree=owner_name) to drill in. Read-only — edit '
+        'node_inputs.default_value_json to retune sockets.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column(
+            'name',
+            'TEXT',
+            hint='Tree name — equals owner_name (and is the join key for child tables).',
+        ),
+        Column('bl_idname', 'TEXT', hint='ShaderNodeTree / GeometryNodeTree / CompositorNodeTree.'),
+        Column('type', 'TEXT', hint='SHADER / GEOMETRY / COMPOSITING / TEXTURE.'),
+        Column(
+            'owner_type',
+            'TEXT',
+            hint='node_group / material / world / light / linestyle / scene.',
+        ),
+        Column(
+            'owner_name',
+            'TEXT',
+            pk=True,
+            hint='Name of the owning datablock; join key for nodes/links/sockets.',
+        ),
+        Column('node_count', 'INTEGER', hint='len(tree.nodes).'),
+        Column('link_count', 'INTEGER', hint='len(tree.links).'),
+    )
+    RELATED: tuple[str, ...] = (
+        'nodes',
+        'node_links',
+        'node_inputs',
+        'node_outputs',
+        'node_tree_interface',
+        'materials',
+    )
     schema = (
         'CREATE TABLE node_trees('
         'name TEXT, '

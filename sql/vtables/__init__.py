@@ -131,6 +131,7 @@ def register_all(engine: Engine) -> None:
     _bind(engine, 'grep', grep.Grep())
     _bind(engine, 'session_log', session_log.SessionLog())
     _bind(engine, 'bsql_tables', bsql.BsqlTables())
+    _bind(engine, 'bsql_columns', bsql.BsqlColumns())
 
     engine.conn.createscalarfunction('grep', _grep_scalar, -1, deterministic=False)
 
