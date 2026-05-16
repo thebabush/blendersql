@@ -20,17 +20,29 @@ Exit-code contract (mirrors `scripts/regen_skills.py`):
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parent.parent
+_EXTENSIONS_ROOT = Path(__file__).resolve().parent / '.blender_user_extensions'
 
 
 def test_skill_autogen_blocks_are_in_sync() -> None:
+    # Forward BLENDER_USER_EXTENSIONS at the test-local extensions tree (set
+    # up by conftest's session fixture) so the regen script's Blender child
+    # picks up THIS checkout's code, not whatever the user's default install
+    # symlink at ~/Library/Application Support/Blender/<v>/extensions/user_default/
+    # happens to target. Without this, drift in this worktree vs. the main
+    # checkout reports as false-positive regen failures.
+    env = os.environ.copy()
+    if _EXTENSIONS_ROOT.exists():
+        env['BLENDER_USER_EXTENSIONS'] = str(_EXTENSIONS_ROOT)
     result = subprocess.run(
         [sys.executable, 'scripts/regen_skills.py', '--check'],
         cwd=str(_REPO),
+        env=env,
         capture_output=True,
         text=True,
         timeout=180,

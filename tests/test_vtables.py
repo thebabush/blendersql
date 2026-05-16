@@ -560,6 +560,10 @@ def test_every_bsql_function_has_metadata(client) -> None:
     # version. description must be a real one-liner (>= 10 chars after trim);
     # agent_hint must say something (>= 20 chars); kind + return_shape must be
     # in the documented enums. Don't loosen the test — fix the decorator.
+    #
+    # The "every function has at least one Param" guard lives standalone as
+    # `test_every_function_has_documented_params_when_arity_known` below
+    # (same query — there used to be a Phase-5 duplicate here).
     r = client.query(
         'SELECT name FROM bsql_functions '
         'WHERE LENGTH(TRIM(description)) < 10 '
@@ -570,29 +574,17 @@ def test_every_bsql_function_has_metadata(client) -> None:
     assert r['ok'], r
     assert r['rows'] == [], r['rows']
 
-    # Phase-5 addendum: variadic functions (arity=-1) are typed only through
-    # `params`; an empty Param tuple on a variadic verb is a documentation gap
-    # the introspection layer would happily ship. Require at least one Param
-    # row for every variadic entry. The `escape_hatch` arity=1 functions
-    # (bpy_eval / bpy_exec) are likewise documented; this filter catches both.
-    r2 = client.query(
-        'SELECT f.name FROM bsql_functions f '
-        'LEFT JOIN bsql_function_params p ON p.function=f.name '
-        'GROUP BY f.name '
-        'HAVING COUNT(p.name) = 0'
-    )
-    assert r2['ok'], r2
-    assert r2['rows'] == [], f'functions without Param metadata: {r2["rows"]}'
-
 
 def test_bsql_functions_count_matches_registry(client) -> None:
-    # Mirror of test_bsql_tables_count_matches_registry. The registry lives
-    # inside Blender so we can't double-check from the pytest process; the
-    # minimum is the 25 verbs + 3 escape hatches + 1 scalar = 29.
-    r = client.query('SELECT COUNT(*) FROM bsql_functions')
-    assert r['ok'], r
-    n = r['rows'][0][0]
-    assert n >= 29, f'expected >= 29 registered functions, got {n}'
+    # Mirror of test_bsql_tables_count_matches_registry. Internal consistency
+    # check — COUNT(*) FROM bsql_functions must equal the count of distinct
+    # owning functions in bsql_function_params (both come from the same
+    # registry). No magic number — exactly the drift the introspection
+    # system was built to kill.
+    a = client.query('SELECT COUNT(*) FROM bsql_functions')
+    b = client.query('SELECT COUNT(DISTINCT function) FROM bsql_function_params')
+    assert a['ok'] and b['ok'], (a, b)
+    assert a['rows'][0][0] == b['rows'][0][0], (a, b)
 
 
 def test_bsql_functions_arity_for_verbs(client) -> None:
@@ -817,3 +809,200 @@ def test_bsql_function_params_snapshot_is_cached(client) -> None:
     assert res['rows_same'], res
     assert res['version_stable'], res
     assert res['rows_len'] > 0, res
+
+
+def test_function_names_unique(client) -> None:
+    # bsql_functions is keyed on name; duplicates would only appear if
+    # register_function ever clobbered. Pair with the register_function
+    # RuntimeError so silent overwrites surface at both registration time
+    # (raise) and inspection time (this).
+    r = client.query('SELECT name, COUNT(*) FROM bsql_functions GROUP BY name HAVING COUNT(*) > 1')
+    assert r['ok'], r
+    assert r['rows'] == [], r['rows']
+
+
+def test_param_metadata_matches_python_registry(client) -> None:
+    # COUNT(*) parity only catches "wrong number of params"; a typo in
+    # Param.name vs the Python variable name slips through silently. Walk
+    # the live registry inside Blender and serialise every Param tuple,
+    # then compare row-for-row against bsql_function_params. If a future
+    # Param drifts from the Python decorator, this is the test that catches
+    # it.
+    import json
+
+    code = (
+        'import sys, json\n'
+        'registry = next(m for n, m in sys.modules.items() if n.endswith(".sql.functions.registry"))\n'
+        'reg = registry.functions_registry()\n'
+        'rows = []\n'
+        'for fname in sorted(reg):\n'
+        '    meta = reg[fname]\n'
+        '    for pos, p in enumerate(meta.params):\n'
+        '        rows.append([\n'
+        '            meta.name, pos, p.name, p.type, int(p.required),\n'
+        '            p.default_json, p.hint,\n'
+        '        ])\n'
+        'result = rows\n'
+    )
+    blender = client.query(f"SELECT bpy_exec('{code}')")
+    assert blender['ok'], blender
+    payload = json.loads(blender['rows'][0][0])
+    assert payload.get('error') is None, payload
+    expected = [tuple(row) for row in payload['result']]
+
+    actual_q = client.query(
+        'SELECT function, position, name, type, required, default_json, hint '
+        'FROM bsql_function_params ORDER BY function, position'
+    )
+    assert actual_q['ok'], actual_q
+    actual = [tuple(row) for row in actual_q['rows']]
+    # Sort the Blender-side rows the same way SQL ORDER BY does (lexicographic
+    # on function name, numeric on position).
+    expected_sorted = sorted(expected, key=lambda r: (r[0], r[1]))
+    assert actual == expected_sorted, (
+        f'Param metadata drift between Python registry and bsql_function_params.\n'
+        f'first divergence: {next((i for i, (a, e) in enumerate(zip(actual, expected_sorted, strict=False)) if a != e), None)}'
+    )
+
+
+def test_default_json_parses(client) -> None:
+    # Every non-empty default_json must be valid JSON. Catches a stray
+    # `default_json='false'` thinking it's a bool literal (it is, but the
+    # type field might not agree — see the next test) or an unquoted string.
+    import json
+
+    r = client.query(
+        "SELECT function, name, default_json FROM bsql_function_params WHERE default_json != ''"
+    )
+    assert r['ok'], r
+    for func, param, default_json in r['rows']:
+        try:
+            json.loads(default_json)
+        except json.JSONDecodeError as e:
+            pytest.fail(f'{func}.{param}: invalid default_json {default_json!r}: {e}')
+
+
+def test_default_json_matches_declared_type(client) -> None:
+    # default_json must parse as a value compatible with the declared `type`.
+    # INTEGER -> int, REAL -> int|float, TEXT -> str, JSON -> any, ANY skipped.
+    # Catches Bug-5-style drift (INTEGER declared with `default_json='false'`).
+    import json
+
+    rows = client.query(
+        'SELECT function, name, type, default_json FROM bsql_function_params '
+        "WHERE default_json != ''"
+    )['rows']
+    for func, name, type_, default_json in rows:
+        val = json.loads(default_json)
+        if type_ == 'ANY':
+            continue
+        if type_ == 'JSON':
+            # Any JSON value is fine.
+            continue
+        if val is None:
+            # JSON null is permissible for any nullable optional. The opt_*
+            # helpers in _common.py treat null as "absent".
+            continue
+        if type_ == 'INTEGER':
+            assert isinstance(val, int) and not isinstance(val, bool), (
+                f'{func}.{name}: type=INTEGER but default_json={default_json!r}'
+            )
+        elif type_ == 'REAL':
+            assert isinstance(val, (int, float)) and not isinstance(val, bool), (
+                f'{func}.{name}: type=REAL but default_json={default_json!r}'
+            )
+        elif type_ == 'TEXT':
+            assert isinstance(val, str), (
+                f'{func}.{name}: type=TEXT but default_json={default_json!r}'
+            )
+        else:
+            pytest.fail(f'{func}.{name}: unknown declared type {type_!r}')
+
+
+def test_optional_param_has_default(client) -> None:
+    # The converse of test_bsql_function_params_default_json_only_on_optional.
+    # An optional param without a default leaves the agent guessing — and the
+    # verb body has no source of truth for the omitted-arg value.
+    r = client.query(
+        "SELECT function, name FROM bsql_function_params WHERE required=0 AND default_json=''"
+    )
+    assert r['ok'], r
+    assert r['rows'] == [], r['rows']
+
+
+def test_bind_is_idempotent() -> None:
+    # Bug-3 regression: calling _bind() twice on the same Engine/table name
+    # must not raise. apsw rejects a duplicate CREATE VIRTUAL TABLE without
+    # an explicit DROP first; _bind() now prefixes DROP TABLE IF EXISTS for
+    # exactly this case.
+    #
+    # Run as a pure-Python unit test (no Blender, no bpy_exec) so we avoid
+    # apsw's BusyError on re-`createscalarfunction` while a statement is
+    # active — the same call path register_all() uses, but exercising _bind
+    # in isolation is the targeted Bug-3 surface. The full register_all()
+    # idempotency follows by induction once _bind is.
+    import apsw
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from sql.vtables import _REGISTRY, _bind
+    from sql.vtables._meta import Column as VColumn
+
+    _COLUMNS_FIXTURE = (VColumn('x', 'INTEGER'),)
+
+    class _MockSource:
+        DESCRIPTION = 'mock'
+        AGENT_HINT = 'mock vtable for idempotency test'
+        COLUMNS = _COLUMNS_FIXTURE
+        RELATED: tuple[str, ...] = ()
+        WRITABLE = False
+        DOMAIN = 'introspection'
+        schema = 'CREATE TABLE mock_idemp(x INTEGER)'
+
+        def Create(self, db, modulename, dbname, tablename, *args):
+            return self.schema, self
+
+        Connect = Create
+
+        def BestIndex(self, *a):
+            return None
+
+        def Open(self):
+            return self
+
+        def Disconnect(self):
+            pass
+
+        Destroy = Disconnect
+
+        def Filter(self, *a):
+            pass
+
+        def Eof(self):
+            return True
+
+        def Column(self, n):
+            return None
+
+        def Rowid(self):
+            return 0
+
+        def Next(self):
+            pass
+
+        def Close(self):
+            pass
+
+    class _Eng:
+        def __init__(self) -> None:
+            self.conn = apsw.Connection(':memory:')
+
+    eng = _Eng()
+    try:
+        # _bind is typed against the real Engine class; _Eng is a minimal
+        # duck-typed stand-in (only `.conn` is touched).
+        _bind(eng, 'mock_idemp', _MockSource())  # type: ignore[arg-type]
+        # Second call must not raise — that's the whole bug.
+        _bind(eng, 'mock_idemp', _MockSource())  # type: ignore[arg-type]
+    finally:
+        _REGISTRY.pop('mock_idemp', None)
+        eng.conn.close()

@@ -16,7 +16,16 @@ _FUNCTIONS_VERSION = 0
 
 
 def register_function(meta: FunctionMeta) -> None:
-    """Record `meta` keyed by `meta.name`. Bumps `functions_version()`."""
+    """Record `meta` keyed by `meta.name`. Bumps `functions_version()`.
+
+    Re-registration with an identical `FunctionMeta` is a no-op (safe — same
+    module imported twice). Re-registration with a DIFFERENT meta under the
+    same name raises: silent clobbering was the kind of drift the
+    introspection system was built to catch.
+    """
+    existing = _FUNCTIONS_REGISTRY.get(meta.name)
+    if existing is not None and existing != meta:
+        raise RuntimeError(f'duplicate function registration: {meta.name}')
     _FUNCTIONS_REGISTRY[meta.name] = meta
     global _FUNCTIONS_VERSION
     _FUNCTIONS_VERSION += 1

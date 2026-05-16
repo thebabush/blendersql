@@ -54,7 +54,7 @@ def _id_counts() -> dict[str, int]:
             'recursive',
             'INTEGER',
             required=False,
-            default_json='false',
+            default_json='0',
             hint='Truthy = recurse (orphans newly freed by the purge become free themselves).',
         ),
     ),

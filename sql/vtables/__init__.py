@@ -160,6 +160,12 @@ def _bind(engine: Engine, table_name: str, source: VTableMeta) -> None:
     module_name = f'blendersql_vt_{table_name}'
     # Vtable sources implement apsw's duck-typed module protocol, not its
     # nominal VTModule type.
+    # DROP TABLE IF EXISTS first so register_all() is idempotent — apsw's
+    # createmodule is fine to call repeatedly with a new instance, but
+    # CREATE VIRTUAL TABLE raises "table X already exists" the second time.
+    # Verified against apsw: virtual tables drop cleanly via the standard
+    # DROP TABLE IF EXISTS path.
+    engine.conn.execute(f'DROP TABLE IF EXISTS {table_name}')
     engine.conn.createmodule(module_name, source)  # type: ignore[arg-type]
     engine.conn.execute(f'CREATE VIRTUAL TABLE {table_name} USING {module_name}')
     _REGISTRY[table_name] = source
