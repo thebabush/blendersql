@@ -8,7 +8,7 @@ allowed-tools:
   - Grep
 ---
 
-BlenderSQL exposes `bpy.data` as ~78 SQLite virtual tables (12 writable) plus 26 SQL functions, served from a running Blender. This skill is the front door: connect, orient, then route.
+BlenderSQL exposes `bpy.data` as a comprehensive SQLite virtual-table surface plus typed verbs and escape-hatch SQL functions, served from a running Blender. This skill is the front door: connect, orient, then route.
 
 ---
 
@@ -267,4 +267,4 @@ When a prompt spans domains: orient in `connect`, work the primary skill, enrich
 
 ## When SQL Isn't Enough
 
-The vtables and 22 typed verbs cover the common paths. For anything else, the `python` skill owns `bpy_eval(expr)` (returns JSON), `bpy_exec(code)` (returns `{stdout, result, error}`), and `bpy_op(operator, params_json, context_override_json)` (any `bpy.ops.*`). Every verb and escape-hatch call is recorded in the `session_log` table — `SELECT * FROM session_log ORDER BY ts DESC` to see what's been done.
+The vtables and typed verbs cover the common paths. For anything else, the `python` skill owns `bpy_eval(expr)` (returns JSON), `bpy_exec(code)` (returns `{stdout, result, error}`), and `bpy_op(operator, params_json, context_override_json)` (any `bpy.ops.*`). Every verb and escape-hatch call is recorded in the `session_log` table — `SELECT * FROM session_log ORDER BY ts DESC` to see what's been done.

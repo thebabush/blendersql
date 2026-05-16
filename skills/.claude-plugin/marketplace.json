@@ -11,7 +11,7 @@
     {
       "name": "blendersql",
       "version": "0.0.1",
-      "description": "SQL interface to bpy.data: 78 virtual tables (12 writable) plus 26 SQL functions for querying and editing scenes, grease pencil, meshes, materials, animation, modifiers, VSE, and assets in a running Blender",
+      "description": "SQL interface to bpy.data: a comprehensive SQLite virtual-table surface over bpy.data plus typed verbs and escape-hatch SQL functions, for querying and editing scenes, grease pencil, meshes, materials, animation, modifiers, VSE, and assets in a running Blender",
       "author": {
         "name": "Paolo Montesel",
         "email": "paolo.montesel@gmail.com"

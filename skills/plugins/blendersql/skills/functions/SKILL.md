@@ -1,6 +1,6 @@
 ---
 name: functions
-description: "Complete catalog of BlenderSQL's 26 SQL functions — signatures, arguments, return shape, and an example for each. The reference skill; use for signature lookup."
+description: "Complete catalog of BlenderSQL's SQL functions — signatures, arguments, return shape, and an example for each. The reference skill; use for signature lookup."
 allowed-tools:
   - Bash
   - Read
@@ -8,13 +8,21 @@ allowed-tools:
   - Grep
 ---
 
-BlenderSQL registers 29 SQL functions on top of the virtual tables: 1 search table-function, 3 escape hatches, and 25 typed "verbs". This is the reference. (Domain detail and write recipes live in the per-topic skills — `scene`, `materials`, `animation`, `modifiers`, `vse`, `grease_pencil`, `python`, `analysis`.)
+BlenderSQL registers <!-- BSQL-AUTOGEN:function-count -->29<!-- /BSQL-AUTOGEN:function-count --> SQL functions on top of the virtual tables: a unified-search scalar, three escape hatches, and <!-- BSQL-AUTOGEN:verb-count -->25<!-- /BSQL-AUTOGEN:verb-count --> typed "verbs". This is the reference. (Domain detail and write recipes live in the per-topic skills — `scene`, `materials`, `animation`, `modifiers`, `vse`, `grease_pencil`, `python`, `analysis`.)
 
 `SELECT name FROM pragma_function_list ORDER BY name;` lists everything SQLite knows (built-ins plus these).
 
 ---
 
 ## Search
+
+The non-verb / non-escape-hatch scalar surface — unified name search across every named datablock. Live registry (regenerated from `bsql_functions`):
+
+<!-- BSQL-AUTOGEN:scalars -->
+| function | side effects | description |
+|---|---|---|
+| `grep` |  | Search every named bpy datablock for a pattern; returns JSON array. |
+<!-- /BSQL-AUTOGEN:scalars -->
 
 ### `grep(pattern [, limit [, offset]])` → JSON array
 Unified name search across every named datablock. Returns a JSON array of `{name, kind, parent_name, full_name}`. `pattern` is case-insensitive; `%`/`_` are SQL wildcards; `*` is normalized to `%`; plain text becomes a contains-match. Defaults: `limit=50`, `offset=0`.
@@ -31,6 +39,18 @@ There's also a **`grep` virtual table** with the same fields for when you want `
 ---
 
 ## Escape hatches (see the `python` skill)
+
+Live registry (regenerated from `bsql_functions`):
+
+<!-- BSQL-AUTOGEN:escape-hatches -->
+| function | side effects | description |
+|---|---|---|
+| `bpy_eval` |  | Eval a Python expression in a bpy/mathutils scope; returns JSON. |
+| `bpy_exec` | yes | Exec arbitrary Python; returns {stdout, result, error} JSON. |
+| `bpy_op` | yes | Invoke a bpy.ops operator with optional params + context override. |
+<!-- /BSQL-AUTOGEN:escape-hatches -->
+
+Signatures and return shapes (curated — the marker above stays a one-liner per function):
 
 | Function | Signature | Returns |
 |---|---|---|
@@ -49,7 +69,39 @@ SELECT bpy_op('object.modifier_apply', '{"modifier":"Subsurf"}', '{"active_objec
 
 ## Typed verbs
 
-All 22 are variadic scalar functions returning a `{ok, result, error}` JSON envelope and pushing a `session_log` row. **A verb failure is reported inside the JSON, not as a SQL error** — inspect the cell. `*_json` args are JSON literals passed as strings; empty-string args are treated as "not given".
+All verbs are variadic scalar functions returning a `{ok, result, error}` JSON envelope and pushing a `session_log` row. **A verb failure is reported inside the JSON, not as a SQL error** — inspect the cell. `*_json` args are JSON literals passed as strings; empty-string args are treated as "not given".
+
+Live registry — every verb at a glance (regenerated from `bsql_functions`; the per-domain sub-tables below carry signatures and examples):
+
+<!-- BSQL-AUTOGEN:verbs -->
+| verb | side effects | description |
+|---|---|---|
+| `add_constraint` | yes | Add a constraint of a given type to an object; optional target + params. |
+| `add_modifier` | yes | Add a modifier of a given type to an object; apply optional params. |
+| `add_node` | yes | Add a node to a node tree (resolved by owner name). |
+| `add_object` | yes | Create a new object of given type and link it into a collection. |
+| `build_node_tree` | yes | Bulk-build a node tree from a {nodes, links} spec in one call. |
+| `ensure_fcurve` | yes | Ensure an fcurve exists for a datablock data_path; create on demand. |
+| `export_file` | yes | Export the scene (or a selection) to OBJ/FBX/GLTF/STL/PLY/USD/X3D. |
+| `gp_add_frame` | yes | Create a new GP v3 frame on a layer at a given frame_number. |
+| `gp_add_layer` | yes | Add a layer to a GreasePencil v3 datablock; optional layer group. |
+| `gp_add_stroke` | yes | Append a stroke (point list) to a GP v3 frame drawing. |
+| `gp_resize_strokes` | yes | Resize every stroke in a GP v3 frame to match a sizes array. |
+| `import_file` | yes | Import a foreign-format mesh/scene file (OBJ/FBX/GLTF/STL/PLY/USD/X3D). |
+| `link_nodes` | yes | Link an output socket on one node to an input socket on another. |
+| `load` | yes | Open a blend file, replacing the current session state. |
+| `purge_orphans` | yes | Purge datablocks with no real users (the Orphan Data "Purge" button). |
+| `remove_unused_material_slots` | yes | Drop material slots not referenced by an object data geometry. |
+| `render` | yes | Render a single still frame of a scene to its render filepath. |
+| `render_object` | yes | Render an isolated thumbnail of a single object to PNG. |
+| `save` | yes | Save the current blend file (optionally to a new filepath). |
+| `set_keyframe` | yes | Assign and insert a keyframe at frame on any datablock data_path. |
+| `vse_add_color` | yes | Add a solid-color effect strip to a scene VSE timeline. |
+| `vse_add_movie` | yes | Add a movie strip to a scene VSE timeline from a filepath. |
+| `vse_add_scene_strip` | yes | Nest one scene as a strip inside another scene VSE timeline. |
+| `vse_add_sound` | yes | Add a sound strip to a scene VSE timeline. |
+| `vse_add_text` | yes | Add a text effect strip to a scene VSE timeline. |
+<!-- /BSQL-AUTOGEN:verbs -->
 
 ### Scene / objects
 | Function | Signature | Example |

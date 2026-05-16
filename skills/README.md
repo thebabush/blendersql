@@ -1,6 +1,6 @@
 # blendersql-skills
 
-Claude Code and Codex plugin packaging for [BlenderSQL](https://github.com/thebabush/blendersql) — a SQL interface to `bpy.data`: ~78 SQLite virtual tables (12 writable) plus 26 SQL functions, served from a running Blender (the GUI add-on's HTTP server, the `blendersql` headless CLI, or `--http` server mode).
+Claude Code and Codex plugin packaging for [BlenderSQL](https://github.com/thebabush/blendersql) — a SQL interface to `bpy.data`: a comprehensive SQLite virtual-table surface over `bpy.data`, plus typed verbs and escape-hatch SQL functions, served from a running Blender (the GUI add-on's HTTP server, the `blendersql` headless CLI, or `--http` server mode).
 
 This directory is self-contained — it can be `git subtree`-split into a standalone `blendersql-skills` repo. It is **not** part of the Blender add-on (excluded from the built `.zip` via `blender_manifest.toml`'s `paths_exclude_pattern`).
 
@@ -69,7 +69,7 @@ plugins/blendersql/
 | `vse` | The Video Sequence Editor: `vse_strips` + per-type side tables. **Writes:** `vse_add_sound`/`movie`/`scene_strip`/`text`/`color`. | `vse_strips`, `vse_strip_sound`/`movie`/`image`/`scene`/`text`/`color` |
 | `assets` | The grab-bag: images, sounds, movieclips, cache_files, fonts, curves/splines/points, texts, lights, cameras, armatures/bones/pose_bones, shape keys, vertex groups, palettes, worlds, brushes, masks, annotations, custom properties. **Writes:** `custom_properties` CRUD. | the rest; `custom_properties` (RW) |
 | `python` | The escape hatches: `bpy_eval`, `bpy_exec`, `bpy_op`; the `session_log` audit table; when to use these vs. the typed verbs/vtables. | `bpy_eval`/`bpy_exec`/`bpy_op`; `session_log` |
-| `functions` | Complete catalog of the 26 SQL functions — signature, args, return shape, an example each. | every function |
+| `functions` | Complete catalog of the SQL functions — signature, args, return shape, an example each. | every function |
 | `analysis` | Triage/audit recipes: orientation, name search, reference counts, orphans, heaviest meshes/GP, smell tests, cross-`.blend` comparison. | composes everything |
 
 ## License

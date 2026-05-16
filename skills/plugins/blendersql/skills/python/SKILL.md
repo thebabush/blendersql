@@ -8,7 +8,7 @@ allowed-tools:
   - Grep
 ---
 
-When SQL rows and the 22 typed verbs aren't enough, drop to Python. Three SQL functions give you the full `bpy` API; `session_log` records what's been done.
+When SQL rows and the typed verbs aren't enough, drop to Python. Three SQL functions give you the full `bpy` API; `session_log` records what's been done.
 
 **Before writing `bpy_exec`, sanity-check:** if your code is shaped like `for x in bpy.data.<kind>: ...` or `[x.foo for x in bpy.data.<kind>]`, you almost certainly want a vtable instead. Every `bpy.data` container has a corresponding SQL table (`bpy.data.meshes` → `meshes`, `bpy.data.lights` → `lights`, …) — a `SELECT name, users, … FROM <kind> WHERE …` is shorter, faster, and avoids the quoting / multi-line / partial-failure pitfalls below. The orphan / audit / heaviness recipes in the `analysis` skill cover the common cases. Reach for `bpy_exec` when you need genuine per-element method calls (`.update()`, `.transform()`, operators), not for reads or filters.
 
@@ -53,6 +53,14 @@ Catalog (regenerated from the live registry — do not hand-edit; run `python sc
 | `bpy_exec` | yes | Exec arbitrary Python; returns {stdout, result, error} JSON. |
 | `bpy_op` | yes | Invoke a bpy.ops operator with optional params + context override. |
 <!-- /BSQL-AUTOGEN:escape-hatches -->
+
+Plus the unified-search scalar (companion to the `grep` vtable — see the `analysis` skill for recipes):
+
+<!-- BSQL-AUTOGEN:scalars -->
+| function | side effects | description |
+|---|---|---|
+| `grep` |  | Search every named bpy datablock for a pattern; returns JSON array. |
+<!-- /BSQL-AUTOGEN:scalars -->
 
 ### `bpy_eval(expr)` — evaluate one expression, get JSON back
 The expression is `eval`'d with `bpy` and `mathutils` in scope; the result is converted to JSON. Use for *quick reads* and probing.
