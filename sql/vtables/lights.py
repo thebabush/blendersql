@@ -78,6 +78,7 @@ class Lights(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('objects', 'node_trees')
+    DOMAIN = 'lights'
     schema = (
         'CREATE TABLE lights('
         'name TEXT, '

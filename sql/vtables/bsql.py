@@ -34,12 +34,19 @@ class BsqlTables(IteratorVTable):
     AGENT_HINT = (
         'Call this FIRST when orienting against an unfamiliar fixture. One row per table, '
         'with writability + a one-liner. Avoid a describe_table spree by joining hints from here. '
-        'The `related` column is a comma-joined convenience; for JOINable form use bsql_related.'
+        'The `related` column is a comma-joined convenience; for JOINable form use bsql_related. '
+        'Filter `WHERE domain=?` (mesh/materials/animation/...) for per-area orientation.'
     )
+    DOMAIN = 'introspection'
     COLUMNS: tuple[Column, ...] = (
         Column('name', 'TEXT', hint='Table name as registered in the engine.'),
         Column('writable', 'INTEGER', hint='Boolean as 0/1; 1 if UPDATE/INSERT/DELETE allowed.'),
         Column('description', 'TEXT', hint='One-line agent-facing summary of the table.'),
+        Column(
+            'domain',
+            'TEXT',
+            hint='Topic bucket (mesh/materials/animation/...); empty means unassigned.',
+        ),
         Column('agent_hint', 'TEXT', hint='When to reach for this table; common JOINs; gotchas.'),
         Column('column_count', 'INTEGER', hint='Number of declared columns in COLUMNS metadata.'),
         Column(
@@ -52,6 +59,7 @@ class BsqlTables(IteratorVTable):
         'name TEXT, '
         'writable INTEGER, '
         'description TEXT, '
+        'domain TEXT, '
         'agent_hint TEXT, '
         'column_count INTEGER, '
         'related TEXT)'
@@ -80,6 +88,7 @@ class BsqlTables(IteratorVTable):
                     name,
                     int(inst.WRITABLE),
                     inst.DESCRIPTION,
+                    inst.DOMAIN,
                     inst.AGENT_HINT,
                     len(inst.COLUMNS),
                     ','.join(inst.RELATED),
@@ -125,6 +134,7 @@ class BsqlColumns(IteratorVTable):
         Column('hint', 'TEXT', hint='One-line agent-facing description; may be empty.'),
     )
     RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_related', 'bsql_functions')
+    DOMAIN = 'introspection'
     schema = (
         'CREATE TABLE bsql_columns('
         '"table" TEXT, '
@@ -185,6 +195,7 @@ class BsqlRelated(IteratorVTable):
         Column('b', 'TEXT', identifier=True, hint='Related table (bsql_tables.name).'),
     )
     RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_columns', 'bsql_functions')
+    DOMAIN = 'introspection'
     schema = 'CREATE TABLE bsql_related(a TEXT, b TEXT)'
 
     def __init__(self) -> None:
@@ -239,6 +250,7 @@ class BsqlFunctions(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_columns', 'bsql_related')
+    DOMAIN = 'introspection'
     schema = (
         'CREATE TABLE bsql_functions('
         'name TEXT, '

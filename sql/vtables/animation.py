@@ -54,6 +54,7 @@ class AnimationData(IteratorVTable):
         Column('driver_count', 'INTEGER', hint='len(animation_data.drivers).'),
     )
     RELATED: tuple[str, ...] = ('actions', 'action_slots', 'action_channelbags', 'drivers')
+    DOMAIN = 'animation'
     schema = (
         'CREATE TABLE animation_data('
         'owner_type TEXT, '
@@ -141,6 +142,7 @@ class Drivers(IteratorVTable):
         Column('variable_count', 'INTEGER', hint='len(driver.variables).'),
     )
     RELATED: tuple[str, ...] = ('animation_data', 'driver_variables', 'driver_targets')
+    DOMAIN = 'animation'
     schema = (
         'CREATE TABLE drivers('
         'owner_type TEXT, '
@@ -222,6 +224,7 @@ class DriverVariables(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('drivers', 'driver_targets')
+    DOMAIN = 'animation'
     schema = (
         'CREATE TABLE driver_variables('
         'owner_type TEXT, '
@@ -300,6 +303,7 @@ class DriverTargets(IteratorVTable):
         Column('bone_target', 'TEXT', hint='Bone name when id is an armature; NULL otherwise.'),
     )
     RELATED: tuple[str, ...] = ('driver_variables', 'drivers')
+    DOMAIN = 'animation'
     schema = (
         'CREATE TABLE driver_targets('
         'owner_type TEXT, '

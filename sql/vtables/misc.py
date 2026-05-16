@@ -23,6 +23,7 @@ class Palettes(IteratorVTable):
         Column('color_count', 'INTEGER', hint='len(palette.colors).'),
     )
     RELATED: tuple[str, ...] = ('palette_colors',)
+    DOMAIN = 'paint'
     schema = 'CREATE TABLE palettes(name TEXT, users INTEGER, color_count INTEGER)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:
@@ -52,6 +53,7 @@ class PaletteColors(IteratorVTable):
         Column('strength', 'REAL', hint='GP draw strength multiplier (0..1).'),
     )
     RELATED: tuple[str, ...] = ('palettes',)
+    DOMAIN = 'paint'
     schema = (
         'CREATE TABLE palette_colors('
         'palette TEXT, '
@@ -106,6 +108,7 @@ class LineStyles(IteratorVTable):
     # (not surfaced as SQL today), so the linestyles<->scenes join is implicit
     # and not worth carrying here.
     RELATED: tuple[str, ...] = ('node_trees',)
+    DOMAIN = 'paint'
     schema = (
         'CREATE TABLE linestyles('
         'name TEXT, '
@@ -157,6 +160,7 @@ class Worlds(IteratorVTable):
         Column('color_b', 'REAL'),
     )
     RELATED: tuple[str, ...] = ('scenes', 'node_trees')
+    DOMAIN = 'lights'
     schema = (
         'CREATE TABLE worlds('
         'name TEXT, '
@@ -264,6 +268,7 @@ class Brushes(IteratorVTable):
         Column('params_json', 'TEXT', hint='JSON dump of mode-specific properties.'),
     )
     RELATED: tuple[str, ...] = ()
+    DOMAIN = 'paint'
     schema = (
         'CREATE TABLE brushes('
         'name TEXT, '
@@ -319,6 +324,7 @@ class Masks(IteratorVTable):
     # aren't broken out into their own vtable, and movie/image strips don't
     # reference masks). Drop the speculative edges.
     RELATED: tuple[str, ...] = ()
+    DOMAIN = 'paint'
     schema = (
         'CREATE TABLE masks('
         'name TEXT, '
@@ -358,6 +364,7 @@ class Annotations(IteratorVTable):
         Column('users', 'INTEGER', hint='Refcount across the file.'),
     )
     RELATED: tuple[str, ...] = ()
+    DOMAIN = 'audit'
     schema = 'CREATE TABLE annotations(name TEXT, users INTEGER)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:

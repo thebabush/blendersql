@@ -80,6 +80,7 @@ class Cameras(IteratorVTable):
     # scenes.camera is an object name, not a camera name — the camera<->scene
     # join is two-hop via objects, so skip listing scenes here.
     RELATED: tuple[str, ...] = ('objects',)
+    DOMAIN = 'lights'
     schema = (
         'CREATE TABLE cameras('
         'name TEXT, '

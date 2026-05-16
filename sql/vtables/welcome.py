@@ -33,6 +33,7 @@ class Welcome(IteratorVTable):
         Column('sound_count', 'INTEGER', hint='len(bpy.data.sounds).'),
     )
     RELATED: tuple[str, ...] = ()
+    DOMAIN = 'audit'
     schema = (
         'CREATE TABLE welcome('
         'blender_version TEXT, '

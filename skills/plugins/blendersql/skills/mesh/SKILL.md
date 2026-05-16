@@ -26,6 +26,20 @@ Mesh data and its geometry tables. A mesh is the *data* of an object with `objec
 
 All read-only. `select` and `index` are SQL keywords — **quote them** (`"select"`, `"index"`). Discovery: `PRAGMA table_info(mesh_vertices);`
 
+Canonical writability + one-line descriptions are kept in sync with the live registry by `scripts/regen_skills.py`:
+
+<!-- BSQL-AUTOGEN:vtables-domain=mesh -->
+| name | writable | description |
+|---|---|---|
+| `mesh_attributes` |  | Per-mesh generic attributes: built-ins + user data, with domain + type. |
+| `mesh_edges` |  | Per-mesh edges: vertex pair, seam/sharp/loose flags, edit-mode visibility. |
+| `mesh_loops` |  | Per-mesh polygon corners (loops): vertex/edge reference and corner normal. |
+| `mesh_polygons` |  | Per-mesh polygons (faces): material index, geometry, flags. |
+| `mesh_uvs` |  | Per-loop UV coordinates across every UV layer of every mesh. |
+| `mesh_vertices` |  | Per-mesh vertices: position, normal, hide/select flags. |
+| `meshes` |  | Mesh datablocks: vertex/edge/polygon/loop counts, UV+material counts. |
+<!-- /BSQL-AUTOGEN:vtables-domain=mesh -->
+
 > **Performance.** `mesh_vertices`, `mesh_edges`, `mesh_polygons`, `mesh_loops`, `mesh_uvs` are the heaviest tables in the schema — one row per element. Always constrain by `mesh = '<name>'` (and ideally a further filter). Never run an unbounded `SELECT * FROM mesh_loops` on a real scene.
 
 ---

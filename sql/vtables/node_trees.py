@@ -89,6 +89,7 @@ class NodeTrees(IteratorVTable):
         'worlds',
         'linestyles',
     )
+    DOMAIN = 'nodes'
     schema = (
         'CREATE TABLE node_trees('
         'name TEXT, '
@@ -145,6 +146,7 @@ class Nodes(IteratorVTable):
         'node_links',
         'node_tree_interface',
     )
+    DOMAIN = 'nodes'
     schema = (
         'CREATE TABLE nodes('
         'tree TEXT, '
@@ -249,6 +251,7 @@ class NodeInputs(WritableSnapshotVTable):
         'node_outputs',
         'node_tree_interface',
     )
+    DOMAIN = 'nodes'
     schema = (
         'CREATE TABLE node_inputs('
         'tree TEXT, '
@@ -332,6 +335,7 @@ class NodeOutputs(IteratorVTable):
         'node_inputs',
         'node_tree_interface',
     )
+    DOMAIN = 'nodes'
     schema = (
         'CREATE TABLE node_outputs('
         'tree TEXT, '
@@ -365,6 +369,7 @@ class NodeLinks(IteratorVTable):
         Column('is_valid', 'INTEGER', hint='Boolean as 0/1; Blender accepts the type pairing.'),
     )
     RELATED: tuple[str, ...] = ('node_trees', 'nodes', 'node_inputs', 'node_outputs')
+    DOMAIN = 'nodes'
     schema = (
         'CREATE TABLE node_links('
         'tree TEXT, '
@@ -435,6 +440,7 @@ class NodeTreeInterface(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('node_trees', 'nodes', 'node_inputs', 'node_outputs')
+    DOMAIN = 'nodes'
     schema = (
         'CREATE TABLE node_tree_interface('
         'tree TEXT, '

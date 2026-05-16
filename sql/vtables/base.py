@@ -33,6 +33,12 @@ class IteratorVTable:
     COLUMNS: tuple[Column, ...] = ()
     RELATED: tuple[str, ...] = ()
     WRITABLE: bool = False
+    # Primary domain bucket — used by the bsql_tables introspection layer and
+    # the regen script's `vtables-domain=<x>` marker to filter the catalog into
+    # per-area lists. Empty default keeps existing tests happy until each
+    # subclass declares its slice; CI guards in test_vtables.py make sure no
+    # registered vtable ships with an empty DOMAIN.
+    DOMAIN: str = ''
 
     def snapshot(self) -> list[tuple[Any, ...]]:
         raise NotImplementedError
@@ -103,6 +109,9 @@ class WritableSnapshotVTable:
     COLUMNS: tuple[Column, ...] = ()
     RELATED: tuple[str, ...] = ()
     WRITABLE: bool = True
+    # See IteratorVTable.DOMAIN for the convention. Same empty default so the
+    # base class works for in-progress migrations.
+    DOMAIN: str = ''
 
     def _snapshot(self) -> tuple[list[tuple[Any, ...]], list[Any]]:
         raise NotImplementedError

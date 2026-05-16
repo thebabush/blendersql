@@ -21,6 +21,15 @@ The modifier stack and the constraint stack on objects (and bones). Both carry t
 
 `params_json` holds the fields that vary by modifier/constraint type — `{"levels": 2, "render_levels": 3}` for SUBSURF, `{"count": 5, "use_relative_offset": true}` for ARRAY, etc. Discovery: `PRAGMA table_info(modifiers);` · `SELECT object, name, type, params_json FROM modifiers WHERE object='Cube';` to see what keys a given one has.
 
+Canonical writability + one-line descriptions kept in sync by `scripts/regen_skills.py`:
+
+<!-- BSQL-AUTOGEN:vtables-domain=modifiers -->
+| name | writable | description |
+|---|---|---|
+| `constraints` | yes | Object and pose-bone constraints: target binding, influence, packed params. |
+| `modifiers` | yes | Per-object modifier stack with type and packed parameters. |
+<!-- /BSQL-AUTOGEN:vtables-domain=modifiers -->
+
 ---
 
 ## Common Queries

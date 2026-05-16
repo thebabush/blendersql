@@ -71,6 +71,7 @@ class VseStrips(IteratorVTable):
         'vse_strip_color',
         'scenes',
     )
+    DOMAIN = 'vse'
     schema = (
         'CREATE TABLE vse_strips('
         'scene TEXT, '
@@ -133,6 +134,7 @@ class VseStripSound(IteratorVTable):
         Column('show_waveform', 'INTEGER', hint='Boolean as 0/1; waveform draw in sequencer.'),
     )
     RELATED: tuple[str, ...] = ('vse_strips', 'sounds')
+    DOMAIN = 'vse'
     schema = (
         'CREATE TABLE vse_strip_sound('
         'scene TEXT, '
@@ -179,6 +181,7 @@ class VseStripMovie(IteratorVTable):
         Column('fps', 'REAL', hint='Source frames-per-second as reported by the container.'),
     )
     RELATED: tuple[str, ...] = ('vse_strips', 'movieclips')
+    DOMAIN = 'vse'
     schema = (
         'CREATE TABLE vse_strip_movie('
         'scene TEXT, '
@@ -225,6 +228,7 @@ class VseStripImage(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('vse_strips', 'images')
+    DOMAIN = 'vse'
     schema = (
         'CREATE TABLE vse_strip_image('
         'scene TEXT, '
@@ -278,6 +282,7 @@ class VseStripScene(IteratorVTable):
         Column('scene_input', 'TEXT', hint='CAMERA or SEQUENCER (5.1 replaced use_sequence).'),
     )
     RELATED: tuple[str, ...] = ('vse_strips', 'scenes')
+    DOMAIN = 'vse'
     schema = (
         'CREATE TABLE vse_strip_scene('
         'scene TEXT, '
@@ -336,6 +341,7 @@ class VseStripText(IteratorVTable):
         Column('use_outline', 'INTEGER', hint='Boolean as 0/1.'),
     )
     RELATED: tuple[str, ...] = ('vse_strips', 'fonts')
+    DOMAIN = 'vse'
     schema = (
         'CREATE TABLE vse_strip_text('
         'scene TEXT, '
@@ -400,6 +406,7 @@ class VseStripColor(IteratorVTable):
         Column('color_b', 'REAL'),
     )
     RELATED: tuple[str, ...] = ('vse_strips',)
+    DOMAIN = 'vse'
     schema = (
         'CREATE TABLE vse_strip_color('
         'scene TEXT, '

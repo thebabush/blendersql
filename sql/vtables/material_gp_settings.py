@@ -156,6 +156,7 @@ class MaterialGpSettings(WritableSnapshotVTable):
         Column('lock', 'INTEGER', writable=True, hint='Boolean as 0/1.'),
     )
     RELATED: tuple[str, ...] = ('materials',)
+    DOMAIN = 'materials'
     schema = (
         'CREATE TABLE material_gp_settings('
         'material TEXT, '

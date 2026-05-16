@@ -46,6 +46,7 @@ class Actions(IteratorVTable):
         'fcurves',
         'animation_data',
     )
+    DOMAIN = 'animation'
     schema = (
         'CREATE TABLE actions('
         'name TEXT, '
@@ -108,6 +109,7 @@ class ActionSlots(IteratorVTable):
         Column('users', 'INTEGER', hint='Number of datablocks bound to this slot.'),
     )
     RELATED: tuple[str, ...] = ('actions', 'action_channelbags', 'animation_data')
+    DOMAIN = 'animation'
     schema = (
         'CREATE TABLE action_slots('
         'action TEXT, '
@@ -152,6 +154,7 @@ class ActionLayers(IteratorVTable):
         Column('strip_count', 'INTEGER', hint='len(layer.strips).'),
     )
     RELATED: tuple[str, ...] = ('actions', 'action_strips')
+    DOMAIN = 'animation'
     schema = 'CREATE TABLE action_layers(action TEXT, name TEXT, strip_count INTEGER)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:
@@ -184,6 +187,7 @@ class ActionStrips(IteratorVTable):
         Column('channelbag_count', 'INTEGER', hint='len(strip.channelbags).'),
     )
     RELATED: tuple[str, ...] = ('actions', 'action_layers', 'action_channelbags')
+    DOMAIN = 'animation'
     schema = (
         'CREATE TABLE action_strips('
         'action TEXT, '
@@ -239,6 +243,7 @@ class ActionChannelbags(IteratorVTable):
         'fcurves',
         'animation_data',
     )
+    DOMAIN = 'animation'
     schema = (
         'CREATE TABLE action_channelbags('
         'action TEXT, '
@@ -367,6 +372,7 @@ class FCurves(WritableSnapshotVTable):
         Column('is_valid', 'INTEGER', hint='Boolean as 0/1; read-only.'),
     )
     RELATED: tuple[str, ...] = ('action_channelbags', 'keyframes', 'actions')
+    DOMAIN = 'animation'
     schema = (
         'CREATE TABLE fcurves('
         'action TEXT, '
@@ -549,6 +555,7 @@ class Keyframes(WritableSnapshotVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('fcurves',)
+    DOMAIN = 'animation'
     schema = (
         'CREATE TABLE keyframes('
         'action TEXT, '

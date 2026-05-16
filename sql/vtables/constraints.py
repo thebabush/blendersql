@@ -93,6 +93,7 @@ class Constraints(WritableSnapshotVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('objects', 'pose_bones')
+    DOMAIN = 'modifiers'
     schema = (
         'CREATE TABLE constraints('
         'owner_type TEXT, '

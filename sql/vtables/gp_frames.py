@@ -36,6 +36,7 @@ class GpFrames(IteratorVTable):
         Column('stroke_count', 'INTEGER', hint='len(frame.drawing.strokes).'),
     )
     RELATED: tuple[str, ...] = ('gp_layers', 'gp_strokes', 'gp_drawing_attributes')
+    DOMAIN = 'grease_pencil'
     schema = (
         'CREATE TABLE gp_frames('
         'gp TEXT, '
@@ -105,6 +106,7 @@ class GpStrokes(WritableSnapshotVTable):
         Column('point_count', 'INTEGER', hint='len(stroke.points).'),
     )
     RELATED: tuple[str, ...] = ('gp_frames', 'gp_points', 'gp_drawing_attributes', 'materials')
+    DOMAIN = 'grease_pencil'
     schema = (
         'CREATE TABLE gp_strokes('
         'gp TEXT, '
@@ -214,6 +216,7 @@ class GpPoints(IteratorVTable):
         Column('vertex_color_a', 'REAL'),
     )
     RELATED: tuple[str, ...] = ('gp_strokes',)
+    DOMAIN = 'grease_pencil'
     schema = (
         'CREATE TABLE gp_points('
         'gp TEXT, '
@@ -279,6 +282,7 @@ class GpDrawingAttributes(IteratorVTable):
         Column('data_type', 'TEXT', hint='FLOAT / INT / FLOAT_VECTOR / FLOAT_COLOR / ...'),
     )
     RELATED: tuple[str, ...] = ('gp_frames', 'gp_strokes')
+    DOMAIN = 'grease_pencil'
     schema = (
         'CREATE TABLE gp_drawing_attributes('
         'gp TEXT, '

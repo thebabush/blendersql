@@ -29,6 +29,7 @@ class GreasePencils(IteratorVTable):
         Column('use_onion_loop', 'INTEGER', hint='Boolean as 0/1; loop onion skins past ends.'),
     )
     RELATED: tuple[str, ...] = ('gp_layers', 'gp_layer_groups', 'material_slots')
+    DOMAIN = 'grease_pencil'
     schema = (
         'CREATE TABLE grease_pencils('
         'name TEXT, '
@@ -77,6 +78,7 @@ class GpLayerGroups(IteratorVTable):
         Column('lock', 'INTEGER', hint='Boolean as 0/1; cascades to child layers for editing.'),
     )
     RELATED: tuple[str, ...] = ('grease_pencils', 'gp_layers')
+    DOMAIN = 'grease_pencil'
     schema = (
         'CREATE TABLE gp_layer_groups('
         'gp TEXT, '
@@ -202,6 +204,7 @@ class GpLayers(WritableSnapshotVTable):
         Column('frame_count', 'INTEGER', hint='len(layer.frames); read-only.'),
     )
     RELATED: tuple[str, ...] = ('grease_pencils', 'gp_layer_groups', 'gp_frames')
+    DOMAIN = 'grease_pencil'
     schema = (
         'CREATE TABLE gp_layers('
         'gp TEXT, '

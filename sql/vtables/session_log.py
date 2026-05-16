@@ -26,6 +26,7 @@ class SessionLog(IteratorVTable):
         Column('error_type', 'TEXT', hint='Exception class name on failure; NULL on success.'),
     )
     RELATED: tuple[str, ...] = ()
+    DOMAIN = 'audit'
     schema = (
         'CREATE TABLE session_log('
         'ts REAL, '

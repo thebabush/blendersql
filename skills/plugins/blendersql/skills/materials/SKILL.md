@@ -28,6 +28,16 @@ Materials plus the *uniform node-tree model* — the same `node_trees` / `nodes`
 
 `tree` everywhere = the owner name (material name for shader trees, object name for the geometry-node *modifier* tree's group, scene name for the compositor, etc.). Discovery: `SELECT sql FROM sqlite_master WHERE name='materials';` · `PRAGMA table_info(node_inputs);`
 
+Canonical writability + one-line descriptions kept in sync by `scripts/regen_skills.py` (materials-domain subset; node_* tables live under the `nodes` domain — query `WHERE domain='nodes'` on `bsql_tables` for those):
+
+<!-- BSQL-AUTOGEN:vtables-domain=materials -->
+| name | writable | description |
+|---|---|---|
+| `material_gp_settings` | yes | Grease Pencil style settings on each GP material: stroke/fill colors, mix, texture, flags. |
+| `material_slots` | yes | Per-object material slots: which material is bound at each slot index. |
+| `materials` | yes | Material datablocks: nodes flag, GP flag, surface render method. |
+<!-- /BSQL-AUTOGEN:vtables-domain=materials -->
+
 ---
 
 ## Common Queries

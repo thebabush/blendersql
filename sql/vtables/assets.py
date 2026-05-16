@@ -36,6 +36,7 @@ class Images(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('materials', 'node_trees', 'vse_strip_image')
+    DOMAIN = 'assets'
     schema = (
         'CREATE TABLE images('
         'name TEXT, '
@@ -92,6 +93,7 @@ class Sounds(IteratorVTable):
         Column('packed', 'INTEGER', hint='Boolean as 0/1; audio embedded in the .blend.'),
     )
     RELATED: tuple[str, ...] = ('vse_strip_sound',)
+    DOMAIN = 'assets'
     schema = (
         'CREATE TABLE sounds('
         'name TEXT, '
@@ -134,6 +136,7 @@ class MovieClips(IteratorVTable):
         Column('size_y', 'INTEGER', hint='Pixel height (size[1]).'),
     )
     RELATED: tuple[str, ...] = ('vse_strip_movie',)
+    DOMAIN = 'assets'
     schema = (
         'CREATE TABLE movieclips('
         'name TEXT, '
@@ -185,6 +188,7 @@ class CacheFiles(IteratorVTable):
         Column('up_axis', 'TEXT', hint='POS_X / POS_Y / POS_Z / NEG_X / NEG_Y / NEG_Z.'),
     )
     RELATED: tuple[str, ...] = ()
+    DOMAIN = 'assets'
     schema = (
         'CREATE TABLE cache_files('
         'name TEXT, '
@@ -239,6 +243,7 @@ class Fonts(IteratorVTable):
         Column('packed', 'INTEGER', hint='Boolean as 0/1; font embedded in the .blend.'),
     )
     RELATED: tuple[str, ...] = ('texts', 'vse_strip_text')
+    DOMAIN = 'assets'
     schema = 'CREATE TABLE fonts(name TEXT, filepath TEXT, users INTEGER, packed INTEGER)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:

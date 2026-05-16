@@ -90,6 +90,7 @@ class CustomProperties(WritableSnapshotVTable):
         Column('default', 'TEXT', writable=True, hint='JSON-encoded default; may be NULL.'),
     )
     RELATED: tuple[str, ...] = ()
+    DOMAIN = 'audit'
     schema = (
         'CREATE TABLE custom_properties('
         'datablock_type TEXT, '

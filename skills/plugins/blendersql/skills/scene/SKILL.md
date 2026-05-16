@@ -25,6 +25,18 @@ The scene graph: `scenes` → `collections` → `collection_objects` → `object
 
 Discovery: `PRAGMA table_info(objects);` · `SELECT sql FROM sqlite_master WHERE name='scenes';` · `SELECT * FROM welcome;`
 
+Canonical writability + one-line descriptions kept in sync by `scripts/regen_skills.py` (includes `scene_objects`, the flattened scene-membership view that the editorial table elides):
+
+<!-- BSQL-AUTOGEN:vtables-domain=scene -->
+| name | writable | description |
+|---|---|---|
+| `collection_objects` |  | Direct (non-recursive) (collection, object) membership links. |
+| `collections` |  | Collection hierarchy: parent link, visibility, child/object counts. |
+| `objects` | yes | Scene objects: identity, type, transform, parent, first collection. |
+| `scene_objects` |  | Recursively flattened per-scene object list (walks nested collections). |
+| `scenes` |  | Scene datablocks: frame range, fps, render engine, camera/world bindings. |
+<!-- /BSQL-AUTOGEN:vtables-domain=scene -->
+
 ---
 
 ## Common Queries

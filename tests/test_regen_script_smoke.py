@@ -24,9 +24,30 @@ def _synthetic_data() -> dict[str, list[dict[str, object]]]:
     """Minimal in-memory fixture mirroring what `_fetch_live_data` returns."""
     return {
         'vtables': [
-            {'name': 'objects', 'writable': 1, 'description': 'Scene objects.'},
-            {'name': 'meshes', 'writable': 0, 'description': 'Mesh datablocks.'},
-            {'name': 'grep', 'writable': 0, 'description': 'Full-text search.'},
+            {
+                'name': 'objects',
+                'writable': 1,
+                'description': 'Scene objects.',
+                'domain': 'scene',
+            },
+            {
+                'name': 'meshes',
+                'writable': 0,
+                'description': 'Mesh datablocks.',
+                'domain': 'mesh',
+            },
+            {
+                'name': 'mesh_vertices',
+                'writable': 0,
+                'description': 'Mesh vertex positions.',
+                'domain': 'mesh',
+            },
+            {
+                'name': 'grep',
+                'writable': 0,
+                'description': 'Full-text search.',
+                'domain': 'search',
+            },
         ],
         'functions': [
             {
@@ -81,7 +102,7 @@ def test_rewrite_singleline_scalar_is_inline() -> None:
     out = rs._rewrite(src, data, Path('synthetic.md'))
     # Single-line scalar body must remain inline — no \n injected.
     assert (
-        'There are <!-- BSQL-AUTOGEN:vtable-count -->3<!-- /BSQL-AUTOGEN:vtable-count --> '
+        'There are <!-- BSQL-AUTOGEN:vtable-count -->4<!-- /BSQL-AUTOGEN:vtable-count --> '
         'vtables registered.' in out
     )
 
@@ -99,10 +120,53 @@ def test_scalars_generator_includes_grep() -> None:
 
 def test_scalar_count_generators() -> None:
     data = _synthetic_data()
-    assert rs._gen_vtable_count(data) == '3'
+    assert rs._gen_vtable_count(data) == '4'
     assert rs._gen_writable_table_count(data) == '1'
     assert rs._gen_verb_count(data) == '1'
     assert rs._gen_function_count(data) == '3'
+
+
+def test_parameterized_vtables_domain_marker_filters_and_renders() -> None:
+    """Parameterized kind: `<!-- BSQL-AUTOGEN:vtables-domain=mesh -->...`.
+
+    The substitution should pick up only the two mesh-domain rows in the
+    synthetic data (meshes, mesh_vertices), keep the table shape, and the
+    different-arg markers must NOT trip the duplicate-kind validator (covered
+    by parsing both kinds in one source string here).
+    """
+    data = _synthetic_data()
+    src = (
+        '<!-- BSQL-AUTOGEN:vtables-domain=mesh -->old<!-- /BSQL-AUTOGEN:vtables-domain=mesh -->\n'
+        '<!-- BSQL-AUTOGEN:vtables-domain=scene -->old<!-- /BSQL-AUTOGEN:vtables-domain=scene -->\n'
+        'count=<!-- BSQL-AUTOGEN:vtable-count-domain=mesh -->X<!-- /BSQL-AUTOGEN:vtable-count-domain=mesh -->'
+    )
+    out = rs._rewrite(src, data, Path('synthetic.md'))
+    assert '`meshes`' in out
+    assert '`mesh_vertices`' in out
+    assert '`objects`' in out  # scene-domain substitution landed too
+    # `grep` is search domain — must NOT appear inside the mesh block.
+    mesh_block_start = out.index('<!-- BSQL-AUTOGEN:vtables-domain=mesh -->')
+    mesh_block_end = out.index('<!-- /BSQL-AUTOGEN:vtables-domain=mesh -->')
+    assert 'grep' not in out[mesh_block_start:mesh_block_end]
+    # Scalar parameterized count rendered inline.
+    assert (
+        'count=<!-- BSQL-AUTOGEN:vtable-count-domain=mesh -->2'
+        '<!-- /BSQL-AUTOGEN:vtable-count-domain=mesh -->' in out
+    )
+
+
+def test_parameterized_marker_unknown_arg_raises() -> None:
+    """Zero rows in a domain filter must surface as a setup error — never
+    silently render an empty body."""
+    data = _synthetic_data()
+    src = (
+        '<!-- BSQL-AUTOGEN:vtables-domain=not_a_real_domain -->'
+        'x'
+        '<!-- /BSQL-AUTOGEN:vtables-domain=not_a_real_domain -->'
+    )
+    with pytest.raises(rs._SetupError) as exc:
+        rs._rewrite(src, data, Path('synthetic.md'))
+    assert 'not_a_real_domain' in str(exc.value)
 
 
 def test_unknown_kind_raises_setup_error() -> None:

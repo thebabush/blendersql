@@ -26,6 +26,20 @@ A scene's sequencer timeline. `vse_strips` is the spine — one row per strip wi
 
 All read-only. `select` is a SQL keyword — quote it. `scenes.sequence_strip_count` tells you which scenes have a sequencer. Discovery: `PRAGMA table_info(vse_strips);`
 
+Canonical writability + one-line descriptions kept in sync by `scripts/regen_skills.py`:
+
+<!-- BSQL-AUTOGEN:vtables-domain=vse -->
+| name | writable | description |
+|---|---|---|
+| `vse_strip_color` |  | Color-strip extension: solid RGB fill (no alpha at the strip level). |
+| `vse_strip_image` |  | Image-strip extension: source directory, frame offsets into the sequence. |
+| `vse_strip_movie` |  | Movie-strip extension: source filepath, stream index, source fps. |
+| `vse_strip_scene` |  | Scene-strip extension: rendered source scene, camera override, input mode. |
+| `vse_strip_sound` |  | Sound-strip extension: bound sound datablock, volume/pan, pitch correction. |
+| `vse_strip_text` |  | Text-strip extension: text, font, size, color, anchor/alignment, outline/shadow. |
+| `vse_strips` |  | VSE strips (all kinds): timing, channel, blend, mute/lock, metastrip parent. |
+<!-- /BSQL-AUTOGEN:vtables-domain=vse -->
+
 ---
 
 ## Common Queries

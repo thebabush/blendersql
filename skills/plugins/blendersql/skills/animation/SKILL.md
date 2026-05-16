@@ -44,6 +44,24 @@ The composite key that threads through `fcurves`/`keyframes` is `(action, layer,
 
 `index` is a SQL keyword in `keyframes` — quote it (`"index"`). Discovery: `PRAGMA table_info(keyframes);` · `SELECT sql FROM sqlite_master WHERE name='fcurves';`
 
+Canonical writability + one-line descriptions kept in sync by `scripts/regen_skills.py`:
+
+<!-- BSQL-AUTOGEN:vtables-domain=animation -->
+| name | writable | description |
+|---|---|---|
+| `action_channelbags` |  | Per-strip channelbags: slot-keyed buckets of fcurves. |
+| `action_layers` |  | Per-action layers: positional list that holds strips. |
+| `action_slots` |  | Per-action slots: target id-type binding, identifier, handle. |
+| `action_strips` |  | Per-layer strips: positional, untyped-by-name, host the channelbags. |
+| `actions` |  | Action datablocks: frame range, slot/layer counts, user refcount. |
+| `animation_data` |  | AnimData blocks across every datablock kind: bound action, slot, NLA state. |
+| `driver_targets` |  | Driver variable targets: the actual ID + data_path / transform-source bindings. |
+| `driver_variables` |  | Driver input variables: name, type, target count. |
+| `drivers` |  | Property drivers on every datablock: expression, variables, remap curve. |
+| `fcurves` | yes | Channelbag f-curves: per-property animation curves with keyframes. |
+| `keyframes` | yes | F-curve keyframe points: (frame,value) + interpolation + bezier handles. |
+<!-- /BSQL-AUTOGEN:vtables-domain=animation -->
+
 ---
 
 ## Common Queries

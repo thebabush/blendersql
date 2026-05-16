@@ -29,6 +29,30 @@ _INTROSPECTION_TABLES: frozenset[str] = frozenset(
 ALL_TABLES: list[str] = sorted(EXPECTED.keys())
 ALL_REGISTERED_TABLES: list[str] = sorted(set(EXPECTED.keys()) | _INTROSPECTION_TABLES)
 
+# Canonical taxonomy mirrored in the issue brief. Adding a new value here means
+# adding a real domain to the registry — keep the two in sync. The regen script
+# accepts any of these as a `vtables-domain=<x>` marker argument.
+_KNOWN_DOMAINS: frozenset[str] = frozenset(
+    {
+        'scene',
+        'mesh',
+        'curve',
+        'materials',
+        'nodes',
+        'modifiers',
+        'animation',
+        'grease_pencil',
+        'armature',
+        'vse',
+        'lights',
+        'assets',
+        'paint',
+        'audit',
+        'search',
+        'introspection',
+    }
+)
+
 
 def test_table_inventory_matches_expected(client) -> None:
     r = client.query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -129,7 +153,15 @@ def test_bsql_tables_columns(client) -> None:
     r = client.query('PRAGMA table_info(bsql_tables)')
     assert r['ok'], r
     cols = [row[1] for row in r['rows']]
-    assert cols == ['name', 'writable', 'description', 'agent_hint', 'column_count', 'related']
+    assert cols == [
+        'name',
+        'writable',
+        'description',
+        'domain',
+        'agent_hint',
+        'column_count',
+        'related',
+    ]
 
 
 def test_bsql_tables_snapshot_is_cached(client) -> None:
@@ -232,6 +264,26 @@ def test_every_bsql_table_has_metadata(client) -> None:
     )
     assert r['ok'], r
     assert r['rows'] == [], f'tables with weak/missing metadata: {r["rows"]}'
+
+
+def test_every_vtable_has_domain(client) -> None:
+    # Positive assertion: every registered vtable must declare a non-empty
+    # DOMAIN. A new class that forgets the attribute (or leaves it ``''`` from
+    # the base default) flunks here. Fix the class, don't loosen the test.
+    r = client.query("SELECT name FROM bsql_tables WHERE TRIM(domain)='' ORDER BY name")
+    assert r['ok'], r
+    assert r['rows'] == [], f'vtables without domain: {[row[0] for row in r["rows"]]}'
+
+
+def test_domain_is_in_known_set(client) -> None:
+    # Mirror of the canonical taxonomy. Adding a new domain requires updating
+    # `_KNOWN_DOMAINS` AND the brief — keep the script's accepted argument set
+    # in sync with this.
+    r = client.query('SELECT DISTINCT domain FROM bsql_tables ORDER BY domain')
+    assert r['ok'], r
+    actual = {row[0] for row in r['rows']}
+    unknown = actual - _KNOWN_DOMAINS
+    assert not unknown, f'vtables declared unknown domain(s): {sorted(unknown)}'
 
 
 # ---------------------------------------------------------------------------

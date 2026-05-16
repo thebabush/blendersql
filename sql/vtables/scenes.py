@@ -37,6 +37,7 @@ class Scenes(IteratorVTable):
         'worlds',
         'vse_strip_scene',
     )
+    DOMAIN = 'scene'
     schema = (
         'CREATE TABLE scenes('
         'name TEXT, '
@@ -110,6 +111,7 @@ class SceneObjects(IteratorVTable):
         Column('hide_render', 'INTEGER', hint='Boolean as 0/1; object-level render hide.'),
     )
     RELATED: tuple[str, ...] = ('scenes', 'objects', 'collections', 'collection_objects')
+    DOMAIN = 'scene'
     schema = (
         'CREATE TABLE scene_objects('
         'scene TEXT, '

@@ -98,6 +98,7 @@ class Objects(WritableSnapshotVTable):
         'pose_bones',
         'vertex_groups',
     )
+    DOMAIN = 'scene'
     schema = (
         'CREATE TABLE objects('
         'name TEXT, '

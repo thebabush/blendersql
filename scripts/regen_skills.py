@@ -44,6 +44,11 @@ Marker kinds supported:
 * `verb-count`        — scalar: count of kind='verb' functions.
 * `function-count`    — scalar: total registered function count.
 
+Parameterized kinds (argument after `=`, alphanumeric + underscore):
+
+* `vtables-domain=<name>`     — same shape as `vtables`, filtered to a domain.
+* `vtable-count-domain=<name>` — scalar: per-domain vtable count.
+
 Bare invocation defaults to --check because an accidental write that silently
 rewrites docs is worse than an accidental check.
 """
@@ -84,8 +89,13 @@ class _SetupError(Exception):
 # Each marker is a regex pair: open / close around the body. We capture the
 # body greedily up to the first matching close marker — markers don't nest, so
 # this is fine. (?s) lets `.` cross newlines.
+#
+# The `kind` token is `<bare>` or `<bare>=<arg>`. Bare = `[a-z0-9_-]+` (existing
+# alphabet); the `=<arg>` suffix carries an argument the generator dispatches
+# on (e.g. domain name). Argument alphabet is `[a-z0-9_]+` — underscore allowed
+# so `grease_pencil` works, hyphen disallowed to keep parsing unambiguous.
 _MARKER_RE = re.compile(
-    r'(<!-- BSQL-AUTOGEN:(?P<kind>[a-z0-9_-]+) -->)'
+    r'(<!-- BSQL-AUTOGEN:(?P<kind>[a-z0-9_-]+(?:=[a-z0-9_]+)?) -->)'
     r'(?P<body>.*?)'
     r'(<!-- /BSQL-AUTOGEN:(?P=kind) -->)',
     re.DOTALL,
@@ -94,8 +104,8 @@ _MARKER_RE = re.compile(
 # Used for orphan-marker / typo detection: matches an open OR close token
 # regardless of whether it has a matching partner. After the substitution scan,
 # any of these tokens still in the text indicates a structural problem.
-_OPEN_MARKER_RE = re.compile(r'<!-- BSQL-AUTOGEN:(?P<kind>[a-z0-9_-]+) -->')
-_CLOSE_MARKER_RE = re.compile(r'<!-- /BSQL-AUTOGEN:(?P<kind>[a-z0-9_-]+) -->')
+_OPEN_MARKER_RE = re.compile(r'<!-- BSQL-AUTOGEN:(?P<kind>[a-z0-9_-]+(?:=[a-z0-9_]+)?) -->')
+_CLOSE_MARKER_RE = re.compile(r'<!-- /BSQL-AUTOGEN:(?P<kind>[a-z0-9_-]+(?:=[a-z0-9_]+)?) -->')
 # Relaxed scan for anything that mentions BSQL-AUTOGEN in a marker-ish way.
 # Compared against the canonical open/close forms in `_validate_markers` so
 # any near-miss (forward-slash close, missing whitespace, lowercase token) is
@@ -105,7 +115,7 @@ _LOOSE_MARKER_RE = re.compile(
     re.IGNORECASE,
 )
 _CANONICAL_MARKER_RE = re.compile(
-    r'<!-- /?BSQL-AUTOGEN:[a-z0-9_-]+ -->',
+    r'<!-- /?BSQL-AUTOGEN:[a-z0-9_-]+(?:=[a-z0-9_]+)? -->',
 )
 
 
@@ -118,7 +128,7 @@ _CANONICAL_MARKER_RE = re.compile(
 _QUERIES: tuple[tuple[str, str], ...] = (
     (
         'vtables',
-        'SELECT name, writable, description FROM bsql_tables ORDER BY name;',
+        'SELECT name, writable, description, domain FROM bsql_tables ORDER BY name;',
     ),
     (
         'functions',
@@ -251,8 +261,8 @@ def _md_escape_cell(text: str) -> str:
     return out
 
 
-def _gen_vtables(data: dict[str, list[dict[str, Any]]]) -> str:
-    rows = data['vtables']
+def _render_vtable_table(rows: list[dict[str, Any]]) -> str:
+    """Shared layout for the `vtables` and `vtables-domain=<x>` blocks."""
     lines = [
         '',
         '| name | writable | description |',
@@ -263,6 +273,10 @@ def _gen_vtables(data: dict[str, list[dict[str, Any]]]) -> str:
         lines.append(f'| `{r["name"]}` | {mark} | {_md_escape_cell(str(r["description"] or ""))} |')
     lines.append('')
     return '\n'.join(lines)
+
+
+def _gen_vtables(data: dict[str, list[dict[str, Any]]]) -> str:
+    return _render_vtable_table(data['vtables'])
 
 
 def _gen_writable_tables(data: dict[str, list[dict[str, Any]]]) -> str:
@@ -343,6 +357,10 @@ def _gen_function_count(data: dict[str, list[dict[str, Any]]]) -> str:
 
 
 Generator = Callable[[dict[str, list[dict[str, Any]]]], str]
+# Parameterized generators receive the argument from `kind=<arg>` plus the data
+# dict. Empty argument or zero matches surface as a _SetupError — we never want
+# a marker to silently render an empty body.
+ParamGenerator = Callable[[str, dict[str, list[dict[str, Any]]]], str]
 
 _GENERATORS: dict[str, Generator] = {
     'vtables': _gen_vtables,
@@ -355,6 +373,52 @@ _GENERATORS: dict[str, Generator] = {
     'verb-count': _gen_verb_count,
     'function-count': _gen_function_count,
 }
+
+
+def _filter_by_domain(data: dict[str, list[dict[str, Any]]], domain: str) -> list[dict[str, Any]]:
+    return [r for r in data['vtables'] if r.get('domain') == domain]
+
+
+def _gen_vtables_domain(arg: str, data: dict[str, list[dict[str, Any]]]) -> str:
+    rows = _filter_by_domain(data, arg)
+    if not rows:
+        raise _SetupError(
+            f"vtables-domain={arg!r} matched zero vtables — typo, or the domain hasn't been "
+            f'assigned yet. Known domains live in tests/test_vtables.py::_KNOWN_DOMAINS.'
+        )
+    return _render_vtable_table(rows)
+
+
+def _gen_vtable_count_domain(arg: str, data: dict[str, list[dict[str, Any]]]) -> str:
+    rows = _filter_by_domain(data, arg)
+    if not rows:
+        raise _SetupError(
+            f"vtable-count-domain={arg!r} matched zero vtables — typo, or the domain hasn't "
+            'been assigned yet.'
+        )
+    return str(len(rows))
+
+
+_PARAM_GENERATORS: dict[str, ParamGenerator] = {
+    'vtables-domain': _gen_vtables_domain,
+    'vtable-count-domain': _gen_vtable_count_domain,
+}
+
+
+def _split_kind(kind: str) -> tuple[str, str | None]:
+    """Return `(bare_kind, arg)` from a marker token; arg is None for plain kinds."""
+    if '=' in kind:
+        bare, arg = kind.split('=', 1)
+        return bare, arg
+    return kind, None
+
+
+def _kind_is_known(kind: str) -> bool:
+    """True if `kind` (with or without `=<arg>`) dispatches to a real generator."""
+    bare, arg = _split_kind(kind)
+    if arg is None:
+        return bare in _GENERATORS
+    return bare in _PARAM_GENERATORS
 
 
 # ---------------------------------------------------------------------------
@@ -371,12 +435,24 @@ def _rewrite(text: str, data: dict[str, list[dict[str, Any]]], path: Path) -> st
 
     def _sub(match: re.Match[str]) -> str:
         kind = match.group('kind')
-        gen = _GENERATORS.get(kind)
-        if gen is None:
-            raise _SetupError(
-                f'{path}: unknown marker kind {kind!r}. Known: {", ".join(sorted(_GENERATORS))}.'
-            )
-        body = gen(data)
+        bare, arg = _split_kind(kind)
+        if arg is None:
+            gen = _GENERATORS.get(bare)
+            if gen is None:
+                raise _SetupError(
+                    f'{path}: unknown marker kind {kind!r}. '
+                    f'Known plain: {", ".join(sorted(_GENERATORS))}; '
+                    f'parameterized: {", ".join(sorted(_PARAM_GENERATORS))}.'
+                )
+            body = gen(data)
+        else:
+            param_gen = _PARAM_GENERATORS.get(bare)
+            if param_gen is None:
+                raise _SetupError(
+                    f'{path}: unknown parameterized marker kind {bare!r} (full kind: {kind!r}). '
+                    f'Known parameterized: {", ".join(sorted(_PARAM_GENERATORS))}.'
+                )
+            body = param_gen(arg, data)
         if '\n' in body:
             # Multi-line block — pad with newlines so the open/close markers
             # sit on their own lines.
@@ -407,12 +483,14 @@ def _validate_markers() -> None:
 
     Catches three classes of mistake before we waste a Blender boot:
 
-    * unknown marker kind (typo in the open or close token).
+    * unknown marker kind (typo in the open or close token; covers both plain
+      kinds and the `<kind>=<arg>` parameterized form).
     * orphan markers (open without matching close, or vice versa).
     * duplicate same-kind markers in one file (re.sub would silently replace
-      both with identical content — almost certainly a copy-paste bug).
+      both with identical content — almost certainly a copy-paste bug). The
+      check uses the *full* kind including its `=<arg>` suffix, so
+      `vtables-domain=mesh` and `vtables-domain=materials` in one file are fine.
     """
-    known = set(_GENERATORS)
     for path in _markdown_files():
         text = path.read_text(encoding='utf-8')
         rel = path.relative_to(_REPO_ROOT)
@@ -445,12 +523,16 @@ def _validate_markers() -> None:
             )
 
         # 3. Unknown-kind + duplicate-kind checks on the well-formed pairs.
+        # `seen` keys on the *full* kind (incl. `=<arg>`) so parameterized
+        # markers with different args coexist in one file without firing.
         seen: dict[str, int] = {}
         for m in _MARKER_RE.finditer(text):
             kind = m.group('kind')
-            if kind not in known:
+            if not _kind_is_known(kind):
                 raise _SetupError(
-                    f'{rel}: unknown marker kind {kind!r}. Known: {", ".join(sorted(known))}.'
+                    f'{rel}: unknown marker kind {kind!r}. '
+                    f'Known plain: {", ".join(sorted(_GENERATORS))}; '
+                    f'parameterized: {", ".join(sorted(_PARAM_GENERATORS))}.'
                 )
             seen[kind] = seen.get(kind, 0) + 1
         dupes = [k for k, n in seen.items() if n > 1]

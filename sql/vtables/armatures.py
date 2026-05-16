@@ -23,6 +23,7 @@ class Armatures(IteratorVTable):
         Column('bone_count', 'INTEGER', hint='len(armature.bones); rest-pose bones.'),
     )
     RELATED: tuple[str, ...] = ('bones', 'pose_bones', 'objects')
+    DOMAIN = 'armature'
     schema = 'CREATE TABLE armatures(name TEXT, users INTEGER, bone_count INTEGER)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:
@@ -62,6 +63,7 @@ class Bones(IteratorVTable):
         Column('tail_local_z', 'REAL', hint='Rest tail position Z in armature-local space.'),
     )
     RELATED: tuple[str, ...] = ('armatures', 'pose_bones', 'vertex_groups')
+    DOMAIN = 'armature'
     schema = (
         'CREATE TABLE bones('
         'armature TEXT, '
@@ -139,6 +141,7 @@ class PoseBones(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('bones', 'armatures', 'objects', 'constraints')
+    DOMAIN = 'armature'
     schema = (
         'CREATE TABLE pose_bones('
         'object TEXT, '

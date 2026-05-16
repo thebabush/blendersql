@@ -64,3 +64,4 @@ class VTableMeta(Protocol):
     COLUMNS: tuple[Column, ...]
     RELATED: tuple[str, ...]
     WRITABLE: bool
+    DOMAIN: str

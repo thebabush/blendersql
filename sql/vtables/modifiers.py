@@ -68,6 +68,7 @@ class Modifiers(WritableSnapshotVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('objects',)
+    DOMAIN = 'modifiers'
     schema = (
         'CREATE TABLE modifiers('
         'object TEXT, '

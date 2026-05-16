@@ -35,6 +35,7 @@ class VertexGroups(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('objects', 'bones', 'meshes')
+    DOMAIN = 'armature'
     schema = (
         'CREATE TABLE vertex_groups(object TEXT, name TEXT, "index" INTEGER, lock_weight INTEGER)'
     )

@@ -26,6 +26,7 @@ class Collections(IteratorVTable):
         Column('object_count', 'INTEGER', hint='Number of directly linked objects.'),
     )
     RELATED: tuple[str, ...] = ('collection_objects', 'scene_objects', 'objects', 'scenes')
+    DOMAIN = 'scene'
     schema = (
         'CREATE TABLE collections('
         'name TEXT, '
@@ -74,6 +75,7 @@ class CollectionObjects(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('collections', 'objects', 'scene_objects')
+    DOMAIN = 'scene'
     schema = 'CREATE TABLE collection_objects(collection TEXT, object TEXT)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:

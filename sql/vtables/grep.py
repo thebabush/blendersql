@@ -45,6 +45,7 @@ class Grep:
     )
     RELATED: tuple[str, ...] = ()
     WRITABLE = False
+    DOMAIN = 'search'
 
     schema = (
         'CREATE TABLE grep('

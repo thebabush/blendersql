@@ -32,6 +32,7 @@ class Curves(IteratorVTable):
         Column('spline_count', 'INTEGER', hint='len(curve.splines).'),
     )
     RELATED: tuple[str, ...] = ('curve_splines', 'curve_points', 'objects', 'texts')
+    DOMAIN = 'curve'
     schema = (
         'CREATE TABLE curves('
         'name TEXT, '
@@ -80,6 +81,7 @@ class CurveSplines(IteratorVTable):
         Column('order_u', 'INTEGER', hint='NURBS order along U (1..6).'),
     )
     RELATED: tuple[str, ...] = ('curves', 'curve_points')
+    DOMAIN = 'curve'
     schema = (
         'CREATE TABLE curve_splines('
         'curve TEXT, '
@@ -144,6 +146,7 @@ class CurvePoints(IteratorVTable):
         Column('handle_right_z', 'REAL'),
     )
     RELATED: tuple[str, ...] = ('curve_splines', 'curves')
+    DOMAIN = 'curve'
     schema = (
         'CREATE TABLE curve_points('
         'curve TEXT, '
@@ -245,6 +248,7 @@ class Texts(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('curves', 'fonts', 'objects')
+    DOMAIN = 'curve'
     schema = (
         'CREATE TABLE texts('
         'name TEXT, '

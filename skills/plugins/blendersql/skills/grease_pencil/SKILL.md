@@ -39,6 +39,20 @@ A GP datablock is the *data* of an object with `objects.type='GREASEPENCIL'`; br
 
 `frame` in `gp_strokes`/`gp_points`/etc. is the **frame number** (int), not a row id. Discovery: `PRAGMA table_info(gp_strokes);` · `SELECT sql FROM sqlite_master WHERE name='gp_layers';`
 
+Canonical writability + one-line descriptions kept in sync by `scripts/regen_skills.py`:
+
+<!-- BSQL-AUTOGEN:vtables-domain=grease_pencil -->
+| name | writable | description |
+|---|---|---|
+| `gp_drawing_attributes` |  | Generic geometry attributes on each GP drawing: domain (POINT/CURVE) + dtype. |
+| `gp_frames` |  | Grease Pencil per-layer frames: frame number, keyframe type, stroke count. |
+| `gp_layer_groups` |  | Grease Pencil layer groups: nestable folders that hold gp_layers. |
+| `gp_layers` | yes | Grease Pencil layers: per-layer transform, tint, opacity, masking flags. |
+| `gp_points` |  | Grease Pencil per-stroke points: position, radius, opacity, vertex color. |
+| `gp_strokes` | yes | Grease Pencil strokes inside a drawing: curve geometry, fill, caps, material. |
+| `grease_pencils` |  | Grease Pencil v3 datablocks: layer counts, onion-skin settings, depth order. |
+<!-- /BSQL-AUTOGEN:vtables-domain=grease_pencil -->
+
 ---
 
 ## The cheap-aggregate trick

@@ -58,6 +58,7 @@ class Materials(WritableSnapshotVTable):
         'images',
         'material_gp_settings',
     )
+    DOMAIN = 'materials'
     schema = (
         'CREATE TABLE materials('
         'name TEXT, '
@@ -199,6 +200,7 @@ class MaterialSlots(WritableSnapshotVTable):
         Column('link', 'TEXT', hint="'DATA' or 'OBJECT' — where the slot is stored."),
     )
     RELATED: tuple[str, ...] = ('objects', 'materials', 'grease_pencils')
+    DOMAIN = 'materials'
     schema = (
         'CREATE TABLE material_slots(object TEXT, slot_index INTEGER, material TEXT, link TEXT)'
     )

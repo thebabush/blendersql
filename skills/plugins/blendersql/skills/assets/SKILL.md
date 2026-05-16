@@ -57,6 +57,18 @@ The datablock types that don't get their own dedicated skill. Most are read-only
 
 `index` / `idx` are SQL-keyword-ish — quote `"index"`. Discovery: `PRAGMA table_info(<table>);` · `SELECT name FROM sqlite_master WHERE type='table'` for the full list.
 
+The editorial table above spans the `assets`, `curve`, `lights`, `armature`, `paint`, and `audit` domains because this skill is the catch-all. The canonical reference below is the *narrow* `assets` domain only (linked external data) — query `bsql_tables WHERE domain IN ('curve','lights','armature','paint','audit')` for the rest:
+
+<!-- BSQL-AUTOGEN:vtables-domain=assets -->
+| name | writable | description |
+|---|---|---|
+| `cache_files` |  | CacheFile datablocks: Alembic / USD references with playback offsets. |
+| `fonts` |  | VectorFont datablocks: filepath, refcount, packed state. |
+| `images` |  | Image datablocks: filepath, source, dimensions, packed state. |
+| `movieclips` |  | MovieClip datablocks: filepath, duration, fps, resolution. |
+| `sounds` |  | Sound datablocks: filepath, refcount, cache + packed state. |
+<!-- /BSQL-AUTOGEN:vtables-domain=assets -->
+
 ---
 
 ## Common Queries

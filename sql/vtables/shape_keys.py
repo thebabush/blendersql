@@ -40,6 +40,7 @@ class ShapeKeys(IteratorVTable):
         Column('key_count', 'INTEGER', hint='len(key.key_blocks); includes the basis.'),
     )
     RELATED: tuple[str, ...] = ('shape_key_blocks', 'meshes')
+    DOMAIN = 'armature'
     schema = (
         'CREATE TABLE shape_keys('
         'name TEXT, '
@@ -108,6 +109,7 @@ class ShapeKeyBlocks(IteratorVTable):
         ),
     )
     RELATED: tuple[str, ...] = ('shape_keys',)
+    DOMAIN = 'armature'
     schema = (
         'CREATE TABLE shape_key_blocks('
         'shape_keys TEXT, '

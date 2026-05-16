@@ -42,6 +42,7 @@ class Meshes(IteratorVTable):
         'shape_keys',
         'vertex_groups',
     )
+    DOMAIN = 'mesh'
     schema = (
         'CREATE TABLE meshes('
         'name TEXT, '
@@ -105,6 +106,7 @@ class MeshAttributes(IteratorVTable):
         'mesh_loops',
         'mesh_polygons',
     )
+    DOMAIN = 'mesh'
     schema = 'CREATE TABLE mesh_attributes(mesh TEXT, name TEXT, domain TEXT, data_type TEXT)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:
@@ -141,6 +143,7 @@ class MeshVertices(IteratorVTable):
         'mesh_loops',
         'mesh_attributes',
     )
+    DOMAIN = 'mesh'
     schema = (
         'CREATE TABLE mesh_vertices('
         'mesh TEXT, '
@@ -203,6 +206,7 @@ class MeshEdges(IteratorVTable):
         'mesh_polygons',
         'mesh_attributes',
     )
+    DOMAIN = 'mesh'
     schema = (
         'CREATE TABLE mesh_edges('
         'mesh TEXT, '
@@ -268,6 +272,7 @@ class MeshPolygons(IteratorVTable):
         'mesh_edges',
         'mesh_attributes',
     )
+    DOMAIN = 'mesh'
     schema = (
         'CREATE TABLE mesh_polygons('
         'mesh TEXT, '
@@ -337,6 +342,7 @@ class MeshLoops(IteratorVTable):
         'mesh_edges',
         'mesh_attributes',
     )
+    DOMAIN = 'mesh'
     schema = (
         'CREATE TABLE mesh_loops('
         'mesh TEXT, '
@@ -383,6 +389,7 @@ class MeshUvs(IteratorVTable):
         Column('v', 'REAL', hint='V coordinate.'),
     )
     RELATED: tuple[str, ...] = ('meshes', 'mesh_loops')
+    DOMAIN = 'mesh'
     schema = 'CREATE TABLE mesh_uvs(mesh TEXT, layer TEXT, loop_index INTEGER, u REAL, v REAL)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:
