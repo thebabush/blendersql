@@ -15,21 +15,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from ._meta import Column
 from .base import IteratorVTable
 
 
 class BsqlTables(IteratorVTable):
-    """One row per registered vtable.
-
-    Columns:
-        name           — table name as registered in the engine.
-        writable       — 1 if the class is writable (UPDATE/INSERT/DELETE), else 0.
-        description    — one-line agent-facing summary.
-        agent_hint     — when to reach for this table; common JOINs; gotchas.
-        column_count   — number of columns declared via the COLUMNS metadata
-                         (0 if the class hasn't been migrated yet).
-        related        — comma-separated list of related table names, or ''.
-    """
+    """One row per registered vtable; columns documented on COLUMNS below."""
 
     table_name = 'bsql_tables'
     DESCRIPTION = 'Self-describing catalog of every blendersql vtable.'
@@ -37,6 +28,17 @@ class BsqlTables(IteratorVTable):
         'Call this FIRST when orienting against an unfamiliar fixture. One row per table, '
         'with writability + a one-liner. Avoid a describe_table spree by joining hints from here.'
     )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', pk=True, hint='Table name as registered in the engine.'),
+        Column('writable', 'INTEGER', hint='Boolean as 0/1; 1 if UPDATE/INSERT/DELETE allowed.'),
+        Column('description', 'TEXT', hint='One-line agent-facing summary of the table.'),
+        Column('agent_hint', 'TEXT', hint='When to reach for this table; common JOINs; gotchas.'),
+        Column('column_count', 'INTEGER', hint='Number of declared columns in COLUMNS metadata.'),
+        Column(
+            'related', 'TEXT', hint='Comma-separated list of related table names (may be empty).'
+        ),
+    )
+    RELATED: tuple[str, ...] = ('bsql_columns',)
     schema = (
         'CREATE TABLE bsql_tables('
         'name TEXT, '
@@ -68,28 +70,31 @@ class BsqlTables(IteratorVTable):
 
 
 class BsqlColumns(IteratorVTable):
-    """One row per declared column across every migrated vtable.
-
-    Skips tables whose COLUMNS tuple is still empty (not yet migrated to the
-    class-attr metadata); those remain queryable via PRAGMA table_info().
-
-    Columns:
-        table     — vtable name as registered in the engine.
-        name      — column name.
-        type      — SQLite affinity (TEXT / INTEGER / REAL / BLOB / ANY).
-        writable  — 1 if UPDATE/INSERT may write this column, else 0.
-        pk        — 1 if this column is the row identifier for writes.
-        hint      — one-line agent-facing description (may be empty).
-    """
+    """One row per declared column across every registered vtable."""
 
     table_name = 'bsql_columns'
-    DESCRIPTION = 'Per-column metadata across every migrated vtable.'
+    DESCRIPTION = 'Per-column metadata across every registered vtable.'
     AGENT_HINT = (
         'Use to discover writable columns, primary keys, and per-column hints without '
         'PRAGMA table_info on every table. Filter with `WHERE "table"=?` — `table` is a '
-        'SQL keyword so it must be quoted. Unmigrated tables have zero rows here; fall '
-        'back to PRAGMA for those.'
+        'SQL keyword so it must be quoted. Every registered table is covered now that '
+        'Phase-1 migration is complete.'
     )
+    COLUMNS: tuple[Column, ...] = (
+        Column('table', 'TEXT', hint='Owning bsql_tables.name (SQL keyword — quote in WHERE).'),
+        Column('name', 'TEXT', hint='Column name within the owning table.'),
+        Column('type', 'TEXT', hint='SQLite affinity: TEXT / INTEGER / REAL / BLOB / ANY.'),
+        Column(
+            'writable', 'INTEGER', hint='Boolean as 0/1; 1 if UPDATE/INSERT may write this column.'
+        ),
+        Column(
+            'pk',
+            'INTEGER',
+            hint='Boolean as 0/1; 1 if this column is the row identifier for writes.',
+        ),
+        Column('hint', 'TEXT', hint='One-line agent-facing description; may be empty.'),
+    )
+    RELATED: tuple[str, ...] = ('bsql_tables',)
     schema = (
         'CREATE TABLE bsql_columns('
         '"table" TEXT, '

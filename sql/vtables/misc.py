@@ -336,6 +336,17 @@ class Masks(IteratorVTable):
 # `bpy.data.grease_pencils` which is v3). Surfaced minimally — the v2 frames
 # / strokes hierarchy is not worth schema effort in 5.1.
 class Annotations(IteratorVTable):
+    DESCRIPTION = 'Legacy GP-v2 annotation datablocks (viewport strokes); minimal surface.'
+    AGENT_HINT = (
+        'Read-only catalog of bpy.data.annotations — the legacy GP-v2 stroke datablocks '
+        'used by the viewport Annotate tool, distinct from bpy.data.grease_pencils (v3). '
+        'Frames/strokes/points hierarchy is intentionally not surfaced in 5.1 — mutate via bpy_exec.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Unique within bpy.data.annotations.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+    )
+    RELATED: tuple[str, ...] = ()
     schema = 'CREATE TABLE annotations(name TEXT, users INTEGER)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:

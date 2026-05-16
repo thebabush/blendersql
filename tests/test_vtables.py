@@ -165,13 +165,15 @@ def test_bsql_tables_writability_matches_class_hierarchy(client) -> None:
     assert by_name['bsql_tables'] == 0
 
 
-def test_bsql_tables_unmigrated_classes_have_empty_metadata(client) -> None:
-    # Sanity: classes that haven't been migrated to the COLUMNS metadata yet
-    # still appear, just with column_count=0 and empty description. Once the
-    # rest of the migration lands this test goes away.
-    r = client.query("SELECT description, column_count FROM bsql_tables WHERE name='annotations'")
+def test_every_bsql_table_has_metadata(client) -> None:
+    # Phase-1 regression guard: every registered table must declare both a
+    # non-empty description and at least one column. If a future vtable lands
+    # without filling in the class-attr metadata it surfaces here.
+    r = client.query(
+        "SELECT name FROM bsql_tables WHERE description='' OR column_count=0 ORDER BY name"
+    )
     assert r['ok'], r
-    assert r['rows'][0] == ['', 0]
+    assert r['rows'] == [], f'tables without metadata: {[row[0] for row in r["rows"]]}'
 
 
 # ---------------------------------------------------------------------------
@@ -225,90 +227,15 @@ def test_bsql_columns_writability_propagates(client) -> None:
     assert by_name['location_x'] == 1
 
 
-def test_bsql_columns_skips_unmigrated_tables(client) -> None:
-    # annotations still has empty COLUMNS — must surface zero rows here.
-    r = client.query('SELECT COUNT(*) FROM bsql_columns WHERE "table"=\'annotations\'')
-    assert r['ok'], r
-    assert r['rows'][0][0] == 0
-
-
-def test_bsql_columns_covers_all_migrated_tables(client) -> None:
-    r = client.query('SELECT DISTINCT "table" FROM bsql_columns')
-    assert r['ok'], r
-    tables = {row[0] for row in r['rows']}
-    expected_migrated = {
-        'objects',
-        'grep',
-        'materials',
-        'material_slots',
-        'modifiers',
-        'collections',
-        'scenes',
-        'meshes',
-        'mesh_polygons',
-        'node_trees',
-        'lights',
-        'cameras',
-        'worlds',
-        'constraints',
-        'custom_properties',
-        'nodes',
-        'node_inputs',
-        'node_outputs',
-        'node_links',
-        'mesh_vertices',
-        'actions',
-        'action_slots',
-        'action_layers',
-        'action_strips',
-        'action_channelbags',
-        'fcurves',
-        'keyframes',
-        'animation_data',
-        'drivers',
-        'driver_variables',
-        'driver_targets',
-        'grease_pencils',
-        'gp_layer_groups',
-        'gp_layers',
-        'gp_frames',
-        'gp_strokes',
-        'gp_points',
-        'gp_drawing_attributes',
-        'material_gp_settings',
-        'vse_strips',
-        'vse_strip_sound',
-        'vse_strip_movie',
-        'vse_strip_image',
-        'vse_strip_scene',
-        'vse_strip_text',
-        'vse_strip_color',
-        'armatures',
-        'bones',
-        'pose_bones',
-        'vertex_groups',
-        'shape_keys',
-        'shape_key_blocks',
-        'mesh_edges',
-        'mesh_loops',
-        'mesh_uvs',
-        'mesh_attributes',
-        'curves',
-        'curve_splines',
-        'curve_points',
-        'texts',
-        'images',
-        'sounds',
-        'movieclips',
-        'cache_files',
-        'fonts',
-        'palettes',
-        'palette_colors',
-        'linestyles',
-        'brushes',
-        'masks',
-        'node_tree_interface',
-    }
-    assert expected_migrated.issubset(tables), (
-        f'missing from bsql_columns: {expected_migrated - tables}'
+def test_bsql_columns_covers_every_registered_table(client) -> None:
+    # Phase-1 complete: every registered table is now migrated, so the set of
+    # tables in bsql_columns must exactly equal the set in bsql_tables.
+    a = client.query('SELECT DISTINCT "table" FROM bsql_columns')
+    b = client.query('SELECT name FROM bsql_tables')
+    assert a['ok'] and b['ok'], (a, b)
+    in_columns = {row[0] for row in a['rows']}
+    registered = {row[0] for row in b['rows']}
+    assert in_columns == registered, (
+        f'missing from bsql_columns: {registered - in_columns}; '
+        f'unexpected in bsql_columns: {in_columns - registered}'
     )

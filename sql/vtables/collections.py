@@ -57,6 +57,18 @@ class Collections(IteratorVTable):
 
 
 class CollectionObjects(IteratorVTable):
+    DESCRIPTION = 'Direct (non-recursive) (collection, object) membership links.'
+    AGENT_HINT = (
+        'Surfaces only objects DIRECTLY linked into each collection — no recursion into '
+        'child collections. For "every object reachable from a scene", use scene_objects '
+        '(which walks the tree via all_objects). JOIN collections ON collections.name='
+        'collection_objects.collection to enrich with parent/visibility.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('collection', 'TEXT', hint='Owning collections.name.'),
+        Column('object', 'TEXT', hint='objects.name directly linked into this collection.'),
+    )
+    RELATED: tuple[str, ...] = ('collections', 'objects', 'scene_objects')
     schema = 'CREATE TABLE collection_objects(collection TEXT, object TEXT)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:

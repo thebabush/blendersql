@@ -82,6 +82,23 @@ class SceneObjects(IteratorVTable):
     into multiple scenes appears once per scene.
     """
 
+    DESCRIPTION = 'Recursively flattened per-scene object list (walks nested collections).'
+    AGENT_HINT = (
+        'Use this — not scenes.objects-style joins — when you need every object reachable '
+        'from a scene including those nested inside child collections; `collection.all_objects` '
+        'is the recursion. An object linked into multiple scenes appears once per scene. '
+        'Contrast with collection_objects which is the direct (non-recursive) collection<->object link.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('scene', 'TEXT', hint='Owning scenes.name.'),
+        Column('object', 'TEXT', hint='objects.name reachable from this scene (any depth).'),
+        Column(
+            'type', 'TEXT', hint='Object type (MESH / EMPTY / LIGHT / ...); mirrors objects.type.'
+        ),
+        Column('hide_viewport', 'INTEGER', hint='Boolean as 0/1; object-level viewport hide.'),
+        Column('hide_render', 'INTEGER', hint='Boolean as 0/1; object-level render hide.'),
+    )
+    RELATED: tuple[str, ...] = ('scenes', 'objects', 'collections', 'collection_objects')
     schema = (
         'CREATE TABLE scene_objects('
         'scene TEXT, '
