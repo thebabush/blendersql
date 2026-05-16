@@ -25,3 +25,13 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: regen-skills-check
+        name: regen-skills (autogen blocks in sync)
+        # Boots a headless Blender (~1.4s) to verify SKILL.md marker blocks
+        # match the live introspection-vtable output. Restricted to paths that
+        # could affect the catalog so tiny commits stay fast. Exits 2 if
+        # Blender / fixture is unavailable — see scripts/regen_skills.py.
+        entry: uv run python scripts/regen_skills.py --check
+        language: system
+        pass_filenames: false
+        files: '^(sql/vtables/|sql/functions/|scripts/regen_skills\.py|skills/plugins/blendersql/skills/.*\.md$)'
