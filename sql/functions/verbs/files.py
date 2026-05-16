@@ -19,6 +19,7 @@ from typing import Any
 import bpy
 import mathutils
 
+from .._meta import function_meta
 from ._common import VerbError, arg, envelope, opt_int, opt_str, parse_json_list, require_str, trunc
 
 # format -> (import_operator_path, export_operator_path); None where unavailable.
@@ -47,6 +48,17 @@ _EXT_FORMAT: dict[str, str] = {
 }
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Save the current blend file (optionally to a new filepath).',
+    agent_hint=(
+        'Args: (filepath?). If filepath is omitted the file must have been '
+        'saved before; otherwise pass an explicit path. No undo step.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def save(*args: Any) -> str:
     start = time.monotonic()
     filepath = opt_str(arg(args, 0), 'filepath')
@@ -66,6 +78,18 @@ def save(*args: Any) -> str:
         return envelope(start, 'save', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Open a blend file, replacing the current session state.',
+    agent_hint=(
+        'Args: (filepath). Wholesale replaces the current bpy state — any '
+        'unsaved edits are lost. Use only when the agent has explicit intent '
+        'to switch documents.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def load(*args: Any) -> str:
     start = time.monotonic()
     filepath = arg(args, 0)
@@ -83,6 +107,17 @@ def load(*args: Any) -> str:
         return envelope(start, 'load', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Render a single still frame of a scene to its render filepath.',
+    agent_hint=(
+        'Args: (scene?, filepath?, frame?). Defaults to the active scene and '
+        'current frame. write_still=True so the image is saved to disk.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def render(*args: Any) -> str:
     start = time.monotonic()
     scene_name = opt_str(arg(args, 0), 'scene')
@@ -110,6 +145,18 @@ def render(*args: Any) -> str:
         return envelope(start, 'render', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Render an isolated thumbnail of a single object to PNG.',
+    agent_hint=(
+        'Args: (object, frame?, filepath?, size?). Renders inside a throwaway '
+        'scene so the live scene/camera/render config is never mutated. For GP '
+        'objects picks the busiest frame automatically when frame is omitted.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def render_object(*args: Any) -> str:
     start = time.monotonic()
     obj_name = arg(args, 0)
@@ -232,6 +279,18 @@ def _render_isolated(obj: Any, src_scene: Any, frame: int, size: int, filepath: 
             bpy.data.scenes.remove(rs)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Import a foreign-format mesh/scene file (OBJ/FBX/GLTF/STL/PLY/USD/X3D).',
+    agent_hint=(
+        'Args: (filepath, format?). format auto-inferred from extension when '
+        'omitted. Errors clearly if the matching operator is missing from this '
+        'Blender build.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def import_file(*args: Any) -> str:
     start = time.monotonic()
     filepath = arg(args, 0)
@@ -258,6 +317,18 @@ def import_file(*args: Any) -> str:
         return envelope(start, 'import_file', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Export the scene (or a selection) to OBJ/FBX/GLTF/STL/PLY/USD/X3D.',
+    agent_hint=(
+        'Args: (filepath, format?, selection_json?). selection_json is an '
+        'array of object names to select before exporting; without it, the '
+        'exporter uses whatever is currently selected.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def export_file(*args: Any) -> str:
     start = time.monotonic()
     filepath = arg(args, 0)

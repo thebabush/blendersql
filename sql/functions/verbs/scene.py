@@ -10,6 +10,7 @@ import bpy
 
 from ...vtables._params import apply_params_json
 from ...vtables.datablocks import RESOLVE_CONTAINER
+from .._meta import function_meta
 from ._common import (
     VerbError,
     arg,
@@ -46,6 +47,18 @@ _DATA_CONTAINER: dict[str, str] = {
 _DATA_NEW_TYPE: dict[str, str] = {'CURVE': 'CURVE', 'SURFACE': 'SURFACE', 'FONT': 'FONT'}
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Create a new object of given type and link it into a collection.',
+    agent_hint=(
+        'Args: (type, name, location_json?, collection?). type is the bpy obj '
+        'type (MESH/EMPTY/CURVE/...); matching data container is created '
+        "automatically. Returns the object's name in the envelope's result."
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def add_object(*args: Any) -> str:
     start = time.monotonic()
     obj_type = arg(args, 0)
@@ -88,6 +101,17 @@ def add_object(*args: Any) -> str:
         return envelope(start, 'add_object', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Add a modifier of a given type to an object; apply optional params.',
+    agent_hint=(
+        'Args: (object, type, params_json?). params_json keys map to modifier '
+        "attributes (e.g. {'levels': 2} on SUBSURF). Returns the modifier name."
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def add_modifier(*args: Any) -> str:
     start = time.monotonic()
     obj_name = arg(args, 0)
@@ -116,6 +140,18 @@ def add_modifier(*args: Any) -> str:
         return envelope(start, 'add_modifier', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Add a constraint of a given type to an object; optional target + params.',
+    agent_hint=(
+        'Args: (object, type, target?, params_json?). target is an object name '
+        '(required for constraints with a target slot). params_json patches '
+        'constraint attributes after creation.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def add_constraint(*args: Any) -> str:
     start = time.monotonic()
     obj_name = arg(args, 0)
@@ -151,6 +187,19 @@ def add_constraint(*args: Any) -> str:
         return envelope(start, 'add_constraint', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Assign and insert a keyframe at frame on any datablock data_path.',
+    agent_hint=(
+        'Args: (datablock_type, datablock_name, data_path, frame, value?, '
+        'array_index?, interpolation?). Auto-creates the action/layer/strip/'
+        'slot/fcurve on layered-action IDs. Pass array_index=-1 for whole-'
+        'vector keyframes.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def set_keyframe(*args: Any) -> str:
     start = time.monotonic()
     db_type = arg(args, 0)
@@ -203,6 +252,19 @@ def set_keyframe(*args: Any) -> str:
         return envelope(start, 'set_keyframe', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Ensure an fcurve exists for a datablock data_path; create on demand.',
+    agent_hint=(
+        'Args: (datablock_type, datablock_name, data_path, array_index?, '
+        'group_name?). Idempotent: creates the action + fcurve if missing, '
+        'then guarantees the fcurve_ensure_for_datablock slot exists. Use '
+        'before populating keyframes manually.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def ensure_fcurve(*args: Any) -> str:
     start = time.monotonic()
     db_type = arg(args, 0)

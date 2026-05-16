@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ..functions._meta import function_meta
 from ._meta import VTableMeta
 
 if TYPE_CHECKING:
@@ -144,8 +145,14 @@ def register_all(engine: Engine) -> None:
     _bind(engine, 'bsql_tables', bsql.BsqlTables())
     _bind(engine, 'bsql_columns', bsql.BsqlColumns())
     _bind(engine, 'bsql_related', bsql.BsqlRelated())
+    _bind(engine, 'bsql_functions', bsql.BsqlFunctions())
 
     engine.conn.createscalarfunction('grep', _grep_scalar, -1, deterministic=False)
+    # Surface the grep scalar in the bsql_functions catalog alongside the
+    # escape-hatch trio and the typed verbs.
+    from ..functions.registry import register_function
+
+    register_function(_grep_scalar._bsql_meta)  # type: ignore[attr-defined]
 
 
 def _bind(engine: Engine, table_name: str, source: VTableMeta) -> None:
@@ -159,6 +166,21 @@ def _bind(engine: Engine, table_name: str, source: VTableMeta) -> None:
     _REGISTRY_VERSION += 1
 
 
+@function_meta(
+    name='grep',
+    kind='scalar',
+    arity=-1,
+    description='Search every named bpy datablock for a pattern; returns JSON array.',
+    agent_hint=(
+        'Args: (pattern, limit?, offset?). LIKE-style wildcards (`%`/`_`) '
+        'supported; bare needles are case-insensitive substring matches. '
+        'Returns a JSON array of {name, kind, parent_name, full_name}. The '
+        'companion `grep` vtable exposes the same data via a HIDDEN `pattern` '
+        'column.'
+    ),
+    return_shape='json',
+    side_effects=False,
+)
 def _grep_scalar(*args: object) -> str:
     from . import grep
 

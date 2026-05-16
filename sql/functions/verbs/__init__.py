@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 
 def register_verbs(engine: Engine) -> None:
+    from ..registry import register_function
     from . import cleanup, files, gp, nodes, scene, vse
 
     verbs = {
@@ -46,3 +47,10 @@ def register_verbs(engine: Engine) -> None:
     }
     for name, fn in verbs.items():
         engine.conn.createscalarfunction(name, fn, -1, deterministic=False)
+        # Every verb is decorated with @function_meta, so _bsql_meta is
+        # guaranteed present. Defensive AttributeError surfaces the missing
+        # decorator clearly if a future verb is added without one.
+        meta = getattr(fn, '_bsql_meta', None)
+        if meta is None:
+            raise RuntimeError(f"verb '{name}' is missing @function_meta")
+        register_function(meta)

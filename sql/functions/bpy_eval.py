@@ -7,9 +7,22 @@ import bpy
 import mathutils
 
 from . import audit
+from ._meta import function_meta
 from .jsonify import to_jsonable
 
 
+@function_meta(
+    kind='escape_hatch',
+    arity=1,
+    description='Eval a Python expression in a bpy/mathutils scope; returns JSON.',
+    agent_hint=(
+        'Read-only escape hatch — use for one-off reads when no vtable covers '
+        'what you need. Returns a JSON-encoded value (or {"error": ...}). For '
+        'multi-statement code, reach for bpy_exec instead.'
+    ),
+    return_shape='json',
+    side_effects=False,
+)
 def bpy_eval(expr: str) -> str:
     start = time.monotonic()
     if not isinstance(expr, str):

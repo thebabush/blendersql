@@ -11,6 +11,7 @@ import bpy
 import mathutils
 
 from . import audit
+from ._meta import function_meta
 from .jsonify import to_jsonable
 
 
@@ -26,6 +27,18 @@ class _ExecResult:
         )
 
 
+@function_meta(
+    kind='escape_hatch',
+    arity=1,
+    description='Exec arbitrary Python; returns {stdout, result, error} JSON.',
+    agent_hint=(
+        'Mutating escape hatch — use only when no typed verb fits. Set a '
+        'top-level `result` to surface a value; stdout is captured. Always '
+        'check the returned `error` field. Prefer a verb if one exists.'
+    ),
+    return_shape='string',
+    side_effects=True,
+)
 def bpy_exec(code: str) -> str:
     start = time.monotonic()
     if not isinstance(code, str):

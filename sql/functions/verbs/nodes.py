@@ -8,6 +8,7 @@ from typing import Any
 import bpy
 
 from ...vtables.node_trees import iter_trees
+from .._meta import function_meta
 from ._common import (
     VerbError,
     arg,
@@ -19,6 +20,18 @@ from ._common import (
 )
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Add a node to a node tree (resolved by owner name).',
+    agent_hint=(
+        'Args: (tree_owner, node_type, location_json?, params_json?). '
+        'tree_owner is the owning datablock name (material/world/scene/...); '
+        'params_json patches node attributes after creation.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def add_node(*args: Any) -> str:
     start = time.monotonic()
     owner = arg(args, 0)
@@ -48,6 +61,18 @@ def add_node(*args: Any) -> str:
         return envelope(start, 'add_node', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Link an output socket on one node to an input socket on another.',
+    agent_hint=(
+        'Args: (tree_owner, from_node, from_socket, to_node, to_socket). '
+        "Socket can be a name, an identifier, or '#<index>' to disambiguate "
+        'duplicates (e.g. Math node has two `Value` inputs).'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def link_nodes(*args: Any) -> str:
     start = time.monotonic()
     owner = arg(args, 0)
@@ -74,6 +99,20 @@ def link_nodes(*args: Any) -> str:
         return envelope(start, 'link_nodes', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Bulk-build a node tree from a {nodes, links} spec in one call.',
+    agent_hint=(
+        "Args: (tree_owner, spec_json). spec_json is {'nodes': [{type, name?, "
+        "location?, params?}], 'links': [{from_node, from_socket, to_node, "
+        "to_socket}], 'clear': bool}. Names declared in nodes[] are resolvable "
+        'in links[]. Use to stand up complex shader graphs without N add_node '
+        'calls.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def build_node_tree(*args: Any) -> str:
     start = time.monotonic()
     owner = arg(args, 0)

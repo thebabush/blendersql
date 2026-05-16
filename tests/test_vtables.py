@@ -22,7 +22,9 @@ from fixtures.expected import EXPECTED
 # their counts track the live registry — covered by dedicated dynamic tests
 # below. Keep them in the inventory's expected set so drift is still detected
 # here.
-_INTROSPECTION_TABLES: frozenset[str] = frozenset({'bsql_tables', 'bsql_columns', 'bsql_related'})
+_INTROSPECTION_TABLES: frozenset[str] = frozenset(
+    {'bsql_tables', 'bsql_columns', 'bsql_related', 'bsql_functions'}
+)
 
 ALL_TABLES: list[str] = sorted(EXPECTED.keys())
 ALL_REGISTERED_TABLES: list[str] = sorted(set(EXPECTED.keys()) | _INTROSPECTION_TABLES)
@@ -458,6 +460,121 @@ def test_every_writable_table_has_writable_columns(client) -> None:
     bad = [row[0] for row in r['rows']]
     unexpected = sorted(set(bad) - _DELETE_ONLY_TABLES)
     assert not unexpected, f'writable tables without writable columns: {unexpected}'
+
+
+# ---------------------------------------------------------------------------
+# bsql_functions — introspection vtable for SQL scalar functions + verbs
+
+
+def test_bsql_functions_schema(client) -> None:
+    r = client.query('PRAGMA table_info(bsql_functions)')
+    assert r['ok'], r
+    cols = [row[1] for row in r['rows']]
+    assert cols == [
+        'name',
+        'kind',
+        'description',
+        'agent_hint',
+        'arity',
+        'return_shape',
+        'side_effects',
+    ]
+
+
+def test_bsql_functions_includes_escape_hatches_and_verbs(client) -> None:
+    r = client.query('SELECT name, kind FROM bsql_functions ORDER BY name')
+    assert r['ok'], r
+    rows = r['rows']
+    names = {row[0] for row in rows}
+    assert 'bpy_eval' in names and 'bpy_exec' in names and 'bpy_op' in names
+    assert 'add_object' in names and 'save' in names and 'purge_orphans' in names
+    assert 'grep' in names
+    by_name = dict(rows)
+    assert by_name['bpy_eval'] == 'escape_hatch'
+    assert by_name['bpy_exec'] == 'escape_hatch'
+    assert by_name['bpy_op'] == 'escape_hatch'
+    assert by_name['add_object'] == 'verb'
+    assert by_name['grep'] == 'scalar'
+
+
+def test_every_bsql_function_has_metadata(client) -> None:
+    # Phase-2 regression guard: positive assertion mirror of the bsql_tables
+    # version. description must be a real one-liner (>= 10 chars after trim);
+    # agent_hint must say something (>= 20 chars); kind + return_shape must be
+    # in the documented enums. Don't loosen the test — fix the decorator.
+    r = client.query(
+        'SELECT name FROM bsql_functions '
+        'WHERE LENGTH(TRIM(description)) < 10 '
+        'OR LENGTH(TRIM(agent_hint)) < 20 '
+        "OR kind NOT IN ('escape_hatch','verb','scalar') "
+        "OR return_shape NOT IN ('json_envelope','json','value','string')"
+    )
+    assert r['ok'], r
+    assert r['rows'] == [], r['rows']
+
+
+def test_bsql_functions_count_matches_registry(client) -> None:
+    # Mirror of test_bsql_tables_count_matches_registry. The registry lives
+    # inside Blender so we can't double-check from the pytest process; the
+    # minimum is the 25 verbs + 3 escape hatches + 1 scalar = 29.
+    r = client.query('SELECT COUNT(*) FROM bsql_functions')
+    assert r['ok'], r
+    n = r['rows'][0][0]
+    assert n >= 29, f'expected >= 29 registered functions, got {n}'
+
+
+def test_bsql_functions_arity_for_verbs(client) -> None:
+    # Every verb is registered as variadic (arity=-1); the only single-arity
+    # entries are bpy_eval / bpy_exec.
+    r = client.query("SELECT name, arity FROM bsql_functions WHERE kind='verb'")
+    assert r['ok'], r
+    for name, arity in r['rows']:
+        assert arity == -1, f'{name}: expected variadic arity=-1, got {arity}'
+
+
+def test_bsql_functions_side_effects_taxonomy(client) -> None:
+    # Read-only entries: bpy_eval + grep. Everything else should be flagged
+    # as side-effecting.
+    r = client.query('SELECT name, side_effects FROM bsql_functions ORDER BY name')
+    assert r['ok'], r
+    by_name = dict(r['rows'])
+    assert by_name['bpy_eval'] == 0, by_name
+    assert by_name['grep'] == 0, by_name
+    assert by_name['bpy_exec'] == 1, by_name
+    assert by_name['bpy_op'] == 1, by_name
+    assert by_name['add_object'] == 1, by_name
+    assert by_name['save'] == 1, by_name
+
+
+def test_bsql_functions_snapshot_is_cached(client) -> None:
+    # G4 regression mirror: repeated `snapshot()` on the same BsqlFunctions
+    # instance returns the cached list (same identity) while functions_version()
+    # is unchanged. Driven inside Blender — the cache lives on the live vtable
+    # instance owned by the engine's apsw connection.
+    import json
+
+    code = (
+        'import sys\n'
+        'bsql = next(m for n, m in sys.modules.items() if n.endswith(".sql.vtables.bsql"))\n'
+        'registry = next(m for n, m in sys.modules.items() if n.endswith(".sql.functions.registry"))\n'
+        '\n'
+        'v_before = registry.functions_version()\n'
+        'f = bsql.BsqlFunctions()\n'
+        'r1 = f.snapshot(); r2 = f.snapshot()\n'
+        'result = {\n'
+        '    "rows_same": r1 is r2,\n'
+        '    "version_stable": registry.functions_version() == v_before,\n'
+        '    "rows_len": len(r1),\n'
+        '}\n'
+    )
+    r = client.query(f"SELECT bpy_exec('{code}')")
+    assert r['ok'], r
+    payload = json.loads(r['rows'][0][0])
+    assert payload.get('error') is None, payload
+    res = payload['result']
+    assert res['rows_same'], res
+    assert res['version_stable'], res
+    assert res['rows_len'] >= 29, res
 
 
 def test_columns_match_schema(client) -> None:

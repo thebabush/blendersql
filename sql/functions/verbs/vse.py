@@ -14,6 +14,7 @@ from typing import Any
 
 import bpy
 
+from .._meta import function_meta
 from ._common import (
     VerbError,
     arg,
@@ -25,6 +26,18 @@ from ._common import (
 )
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Add a sound strip to a scene VSE timeline.',
+    agent_hint=(
+        'Args: (scene, sound, channel, frame_start). sound is a bpy.data.sounds '
+        "name; the strip's filepath is taken from that sound datablock. Creates "
+        'the sequence_editor if missing.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def vse_add_sound(*args: Any) -> str:
     start = time.monotonic()
     scene_name = arg(args, 0)
@@ -44,6 +57,17 @@ def vse_add_sound(*args: Any) -> str:
         return envelope(start, 'vse_add_sound', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Add a movie strip to a scene VSE timeline from a filepath.',
+    agent_hint=(
+        'Args: (scene, filepath, channel, frame_start). filepath is on-disk '
+        '(no datablock indirection like sounds). Strip is named after the file.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def vse_add_movie(*args: Any) -> str:
     start = time.monotonic()
     scene_name = arg(args, 0)
@@ -61,6 +85,18 @@ def vse_add_movie(*args: Any) -> str:
         return envelope(start, 'vse_add_movie', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Nest one scene as a strip inside another scene VSE timeline.',
+    agent_hint=(
+        'Args: (scene, source_scene, channel, frame_start). Both names must '
+        'resolve to bpy.data.scenes entries; useful for previz layouts that '
+        'composite multiple scenes.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def vse_add_scene_strip(*args: Any) -> str:
     start = time.monotonic()
     scene_name = arg(args, 0)
@@ -80,6 +116,17 @@ def vse_add_scene_strip(*args: Any) -> str:
         return envelope(start, 'vse_add_scene_strip', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Add a text effect strip to a scene VSE timeline.',
+    agent_hint=(
+        'Args: (scene, text, channel, frame_start, frame_end?). frame_end '
+        '(exclusive) is translated to a length internally. Sets strip.text.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def vse_add_text(*args: Any) -> str:
     start = time.monotonic()
     scene_name = arg(args, 0)
@@ -98,6 +145,18 @@ def vse_add_text(*args: Any) -> str:
         return envelope(start, 'vse_add_text', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Add a solid-color effect strip to a scene VSE timeline.',
+    agent_hint=(
+        'Args: (scene, color_json, channel, frame_start, frame_end?). '
+        'color_json is a [r,g,b] array of floats; frame_end (exclusive) is '
+        'translated to length internally.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def vse_add_color(*args: Any) -> str:
     start = time.monotonic()
     scene_name = arg(args, 0)

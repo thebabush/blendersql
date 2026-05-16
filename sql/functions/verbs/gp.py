@@ -14,6 +14,7 @@ from typing import Any
 
 import bpy
 
+from .._meta import function_meta
 from ._common import (
     VerbError,
     arg,
@@ -26,6 +27,17 @@ from ._common import (
 )
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Add a layer to a GreasePencil v3 datablock; optional layer group.',
+    agent_hint=(
+        'Args: (grease_pencil, name, layer_group?). layer_group is an existing '
+        'group on the gp datablock. Returns the new layer name.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def gp_add_layer(*args: Any) -> str:
     start = time.monotonic()
     gp_name = arg(args, 0)
@@ -47,6 +59,18 @@ def gp_add_layer(*args: Any) -> str:
         return envelope(start, 'gp_add_layer', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Create a new GP v3 frame on a layer at a given frame_number.',
+    agent_hint=(
+        'Args: (grease_pencil, layer, frame_number, keyframe_type?). '
+        'Required before adding strokes. keyframe_type is KEYFRAME / BREAKDOWN '
+        '/ EXTREME / JITTER / MOVING_HOLD.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def gp_add_frame(*args: Any) -> str:
     start = time.monotonic()
     gp_name = arg(args, 0)
@@ -71,6 +95,19 @@ def gp_add_frame(*args: Any) -> str:
         return envelope(start, 'gp_add_frame', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Append a stroke (point list) to a GP v3 frame drawing.',
+    agent_hint=(
+        'Args: (grease_pencil, layer, frame, points_json, material_index?, '
+        'cyclic?). points_json is [{x,y,z,radius?,opacity?}, ...] or [[x,y,z], '
+        '...]. Frame must already exist (gp_add_frame first). Returns the new '
+        "stroke's index in the drawing."
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def gp_add_stroke(*args: Any) -> str:
     start = time.monotonic()
     gp_name = arg(args, 0)
@@ -108,6 +145,19 @@ def gp_add_stroke(*args: Any) -> str:
         return envelope(start, 'gp_add_stroke', audit_text, None, exc)
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Resize every stroke in a GP v3 frame to match a sizes array.',
+    agent_hint=(
+        'Args: (grease_pencil, layer, frame, sizes_json). sizes_json must have '
+        'exactly one entry per stroke in the drawing. Use when you need to '
+        'bulk-change stroke point counts; per-stroke resize happens via the GP '
+        'API.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def gp_resize_strokes(*args: Any) -> str:
     start = time.monotonic()
     gp_name = arg(args, 0)

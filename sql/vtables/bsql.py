@@ -7,9 +7,13 @@ declared column, with type / writability / identifier flags / hint.
 `bsql_related` is the JOIN-friendly long form of `bsql_tables.related` —
 one row per (a, b) related-table edge. Lets agents ask one question
 instead of N describe_table calls.
+`bsql_functions` is the parallel surface for SQL scalar functions: one row
+per escape hatch, typed verb, or scalar (currently 29 entries: 25 verbs +
+3 escape hatches + 1 scalar). Same pattern, separate registry — see
+`sql/functions/registry.py`.
 
 This is the entry point of the metadata pipeline tracked in issue #5: as
-each vtable migrates its class-attr metadata, all three introspection
+each vtable migrates its class-attr metadata, all four introspection
 vtables instantly reflect the change with zero hand-maintained list to
 keep in sync.
 """
@@ -42,7 +46,7 @@ class BsqlTables(IteratorVTable):
             'related', 'TEXT', hint='Comma-separated list of related table names (may be empty).'
         ),
     )
-    RELATED: tuple[str, ...] = ('bsql_columns', 'bsql_related')
+    RELATED: tuple[str, ...] = ('bsql_columns', 'bsql_related', 'bsql_functions')
     schema = (
         'CREATE TABLE bsql_tables('
         'name TEXT, '
@@ -120,7 +124,7 @@ class BsqlColumns(IteratorVTable):
         ),
         Column('hint', 'TEXT', hint='One-line agent-facing description; may be empty.'),
     )
-    RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_related')
+    RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_related', 'bsql_functions')
     schema = (
         'CREATE TABLE bsql_columns('
         '"table" TEXT, '
@@ -180,7 +184,7 @@ class BsqlRelated(IteratorVTable):
         Column('a', 'TEXT', identifier=True, hint='Source table (bsql_tables.name).'),
         Column('b', 'TEXT', identifier=True, hint='Related table (bsql_tables.name).'),
     )
-    RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_columns')
+    RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_columns', 'bsql_functions')
     schema = 'CREATE TABLE bsql_related(a TEXT, b TEXT)'
 
     def __init__(self) -> None:
@@ -200,6 +204,80 @@ class BsqlRelated(IteratorVTable):
             for other in inst.RELATED:
                 rows.append((name, other))
         rows.sort()
+        self._cached_rows = rows
+        self._cached_version = v
+        return self._cached_rows
+
+
+class BsqlFunctions(IteratorVTable):
+    """One row per registered SQL scalar function (escape hatch / verb / scalar)."""
+
+    table_name = 'bsql_functions'
+    DESCRIPTION = 'Self-describing catalog of every SQL scalar function + verb.'
+    AGENT_HINT = (
+        'Companion to bsql_tables. One row per function — escape hatches '
+        '(bpy_eval/exec/op), the grep scalar, and the typed verbs. Use to '
+        'discover what verbs exist before reaching for bpy_exec. Filter by '
+        "`kind` to narrow ('verb' for typed wrappers, 'escape_hatch' for "
+        'the raw bpy entry points). All verbs are variadic (arity=-1).'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', identifier=True, hint='SQL function name.'),
+        Column('kind', 'TEXT', hint='escape_hatch / verb / scalar.'),
+        Column('description', 'TEXT', hint='One-line agent-facing summary of the function.'),
+        Column('agent_hint', 'TEXT', hint='When to reach for this function; arg list; gotchas.'),
+        Column('arity', 'INTEGER', hint='Positional arg count; -1 for variadic.'),
+        Column(
+            'return_shape',
+            'TEXT',
+            hint='json_envelope / json / value / string — see sql/functions/_meta.py.',
+        ),
+        Column(
+            'side_effects',
+            'INTEGER',
+            hint='Boolean as 0/1; 1 if the function mutates Blender state.',
+        ),
+    )
+    RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_columns', 'bsql_related')
+    schema = (
+        'CREATE TABLE bsql_functions('
+        'name TEXT, '
+        'kind TEXT, '
+        'description TEXT, '
+        'agent_hint TEXT, '
+        'arity INTEGER, '
+        'return_shape TEXT, '
+        'side_effects INTEGER)'
+    )
+
+    # Instance-level snapshot cache keyed on functions_version() — separate
+    # counter from registry_version() because the function registry is
+    # independent of the vtable registry.
+    def __init__(self) -> None:
+        self._cached_version: int = -1
+        self._cached_rows: list[tuple[Any, ...]] = []
+
+    def snapshot(self) -> list[tuple[Any, ...]]:
+        from ..functions.registry import functions_registry, functions_version
+
+        v = functions_version()
+        if v == self._cached_version:
+            return self._cached_rows
+        reg = functions_registry()
+        rows: list[tuple[Any, ...]] = []
+        for name in sorted(reg):
+            meta = reg[name]
+            rows.append(
+                (
+                    meta.name,
+                    meta.kind,
+                    meta.description,
+                    meta.agent_hint,
+                    meta.arity,
+                    meta.return_shape,
+                    int(meta.side_effects),
+                )
+            )
         self._cached_rows = rows
         self._cached_version = v
         return self._cached_rows

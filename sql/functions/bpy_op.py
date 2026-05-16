@@ -8,6 +8,7 @@ from typing import Any
 import bpy
 
 from . import audit
+from ._meta import function_meta
 from .jsonify import to_jsonable
 
 
@@ -31,6 +32,19 @@ _OBJECT_KEYS = ('active_object', 'object', 'edit_object')
 _OBJECT_LIST_KEYS = ('selected_objects', 'selected_editable_objects')
 
 
+@function_meta(
+    kind='escape_hatch',
+    arity=-1,
+    description='Invoke a bpy.ops operator with optional params + context override.',
+    agent_hint=(
+        'Args: (operator, params_json?, context_override_json?). Returns the '
+        '{status, result, error} envelope. Use when an operator has no typed '
+        'verb wrapper; otherwise prefer the verb so audit semantics stay '
+        'uniform.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def bpy_op(*args: Any) -> str:
     start = time.monotonic()
 

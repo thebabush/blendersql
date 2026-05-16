@@ -25,6 +25,7 @@ from typing import Any
 import bpy
 
 from ...vtables.datablocks import DATABLOCK_KINDS
+from .._meta import function_meta
 from ._common import VerbError, arg, envelope, opt_str
 
 
@@ -37,6 +38,18 @@ def _id_counts() -> dict[str, int]:
     return out
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Purge datablocks with no real users (the Orphan Data "Purge" button).',
+    agent_hint=(
+        'Args: (recursive?). Reports a per-kind removal tally so the agent '
+        'can verify what was freed. Datablocks with fake_user=1 survive — '
+        "that's by design."
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def purge_orphans(*args: Any) -> str:
     start = time.monotonic()
     recursive = bool(arg(args, 0))
@@ -85,6 +98,18 @@ def _used_material_indices(obj: Any) -> set[int] | None:
     return None  # other data types: leave their slots alone
 
 
+@function_meta(
+    kind='verb',
+    arity=-1,
+    description='Drop material slots not referenced by an object data geometry.',
+    agent_hint=(
+        'Args: (object?). With no object, walks every object with material '
+        'slots. Pops empty slots from the data datablock (mesh/curve/GP), so '
+        'shared geometry only pays once. Reports per-object tallies.'
+    ),
+    return_shape='json_envelope',
+    side_effects=True,
+)
 def remove_unused_material_slots(*args: Any) -> str:
     start = time.monotonic()
     obj_name = opt_str(arg(args, 0), 'object')
