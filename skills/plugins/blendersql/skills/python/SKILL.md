@@ -44,6 +44,16 @@ This matters because blendersql currently doesn't ship full Python API docs (see
 
 ## The functions
 
+Catalog (regenerated from the live registry — do not hand-edit; run `python scripts/regen_skills.py --write`):
+
+<!-- BSQL-AUTOGEN:escape-hatches -->
+| function | side effects | description |
+|---|---|---|
+| `bpy_eval` |  | Eval a Python expression in a bpy/mathutils scope; returns JSON. |
+| `bpy_exec` | yes | Exec arbitrary Python; returns {stdout, result, error} JSON. |
+| `bpy_op` | yes | Invoke a bpy.ops operator with optional params + context override. |
+<!-- /BSQL-AUTOGEN:escape-hatches -->
+
 ### `bpy_eval(expr)` — evaluate one expression, get JSON back
 The expression is `eval`'d with `bpy` and `mathutils` in scope; the result is converted to JSON. Use for *quick reads* and probing.
 
@@ -130,6 +140,38 @@ Prefer the typed path when it exists — it's terser, validated, and audited:
 | change custom properties | `custom_properties` CRUD (`assets` skill) | `bpy_exec` |
 | run an operator with no typed wrapper | — | `bpy_op` |
 | anything genuinely off the map | — | `bpy_exec` |
+
+Full verb catalog (live registry — regenerate via `python scripts/regen_skills.py --write`):
+
+<!-- BSQL-AUTOGEN:verbs -->
+| verb | side effects | description |
+|---|---|---|
+| `add_constraint` | yes | Add a constraint of a given type to an object; optional target + params. |
+| `add_modifier` | yes | Add a modifier of a given type to an object; apply optional params. |
+| `add_node` | yes | Add a node to a node tree (resolved by owner name). |
+| `add_object` | yes | Create a new object of given type and link it into a collection. |
+| `build_node_tree` | yes | Bulk-build a node tree from a {nodes, links} spec in one call. |
+| `ensure_fcurve` | yes | Ensure an fcurve exists for a datablock data_path; create on demand. |
+| `export_file` | yes | Export the scene (or a selection) to OBJ/FBX/GLTF/STL/PLY/USD/X3D. |
+| `gp_add_frame` | yes | Create a new GP v3 frame on a layer at a given frame_number. |
+| `gp_add_layer` | yes | Add a layer to a GreasePencil v3 datablock; optional layer group. |
+| `gp_add_stroke` | yes | Append a stroke (point list) to a GP v3 frame drawing. |
+| `gp_resize_strokes` | yes | Resize every stroke in a GP v3 frame to match a sizes array. |
+| `import_file` | yes | Import a foreign-format mesh/scene file (OBJ/FBX/GLTF/STL/PLY/USD/X3D). |
+| `link_nodes` | yes | Link an output socket on one node to an input socket on another. |
+| `load` | yes | Open a blend file, replacing the current session state. |
+| `purge_orphans` | yes | Purge datablocks with no real users (the Orphan Data "Purge" button). |
+| `remove_unused_material_slots` | yes | Drop material slots not referenced by an object data geometry. |
+| `render` | yes | Render a single still frame of a scene to its render filepath. |
+| `render_object` | yes | Render an isolated thumbnail of a single object to PNG. |
+| `save` | yes | Save the current blend file (optionally to a new filepath). |
+| `set_keyframe` | yes | Assign and insert a keyframe at frame on any datablock data_path. |
+| `vse_add_color` | yes | Add a solid-color effect strip to a scene VSE timeline. |
+| `vse_add_movie` | yes | Add a movie strip to a scene VSE timeline from a filepath. |
+| `vse_add_scene_strip` | yes | Nest one scene as a strip inside another scene VSE timeline. |
+| `vse_add_sound` | yes | Add a sound strip to a scene VSE timeline. |
+| `vse_add_text` | yes | Add a text effect strip to a scene VSE timeline. |
+<!-- /BSQL-AUTOGEN:verbs -->
 
 ---
 

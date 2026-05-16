@@ -86,6 +86,110 @@ SELECT name, type, writable, pk, hint FROM bsql_columns WHERE "table"='objects';
 
 These subsume most needs that `PRAGMA table_info` previously covered — and add agent-facing `description` / `agent_hint` / `pk` / `writable` that PRAGMA can't surface.
 
+The full catalog, regenerated from the live registry (do not edit by hand — run `python scripts/regen_skills.py --write`):
+
+<!-- BSQL-AUTOGEN:vtables -->
+| name | writable | description |
+|---|---|---|
+| `action_channelbags` |  | Per-strip channelbags: slot-keyed buckets of fcurves. |
+| `action_layers` |  | Per-action layers: positional list that holds strips. |
+| `action_slots` |  | Per-action slots: target id-type binding, identifier, handle. |
+| `action_strips` |  | Per-layer strips: positional, untyped-by-name, host the channelbags. |
+| `actions` |  | Action datablocks: frame range, slot/layer counts, user refcount. |
+| `animation_data` |  | AnimData blocks across every datablock kind: bound action, slot, NLA state. |
+| `annotations` |  | Legacy GP-v2 annotation datablocks (viewport strokes); minimal surface. |
+| `armatures` |  | Armature datablocks: name, refcount, bone count. |
+| `bones` |  | Rest-pose bones from armature data: hierarchy, deform flags, head/tail in local space. |
+| `brushes` |  | Brush datablocks: per-mode tool type, size/strength, blend mode, params blob. |
+| `bsql_columns` |  | Per-column metadata across every registered vtable. |
+| `bsql_functions` |  | Self-describing catalog of every SQL scalar function + verb. |
+| `bsql_related` |  | Long form of bsql_tables.related: one row per (table, related-table) edge. |
+| `bsql_tables` |  | Self-describing catalog of every blendersql vtable. |
+| `cache_files` |  | CacheFile datablocks: Alembic / USD references with playback offsets. |
+| `cameras` |  | Camera datablocks: lens, sensor, clip range, DOF basics, ortho scale. |
+| `collection_objects` |  | Direct (non-recursive) (collection, object) membership links. |
+| `collections` |  | Collection hierarchy: parent link, visibility, child/object counts. |
+| `constraints` | yes | Object and pose-bone constraints: target binding, influence, packed params. |
+| `curve_points` |  | Per-spline control points: position, radius/tilt, bezier handles (BEZIER only). |
+| `curve_splines` |  | Per-curve splines: type (BEZIER/POLY/NURBS), point count, U-axis settings. |
+| `curves` |  | Curve datablocks: dimensions, bevel/fill settings, spline count. |
+| `custom_properties` | yes | ID-property key/value pairs across every named datablock, with UI metadata. |
+| `driver_targets` |  | Driver variable targets: the actual ID + data_path / transform-source bindings. |
+| `driver_variables` |  | Driver input variables: name, type, target count. |
+| `drivers` |  | Property drivers on every datablock: expression, variables, remap curve. |
+| `fcurves` | yes | Channelbag f-curves: per-property animation curves with keyframes. |
+| `fonts` |  | VectorFont datablocks: filepath, refcount, packed state. |
+| `gp_drawing_attributes` |  | Generic geometry attributes on each GP drawing: domain (POINT/CURVE) + dtype. |
+| `gp_frames` |  | Grease Pencil per-layer frames: frame number, keyframe type, stroke count. |
+| `gp_layer_groups` |  | Grease Pencil layer groups: nestable folders that hold gp_layers. |
+| `gp_layers` | yes | Grease Pencil layers: per-layer transform, tint, opacity, masking flags. |
+| `gp_points` |  | Grease Pencil per-stroke points: position, radius, opacity, vertex color. |
+| `gp_strokes` | yes | Grease Pencil strokes inside a drawing: curve geometry, fill, caps, material. |
+| `grease_pencils` |  | Grease Pencil v3 datablocks: layer counts, onion-skin settings, depth order. |
+| `grep` |  | Full-text-ish search across every named bpy datablock. |
+| `images` |  | Image datablocks: filepath, source, dimensions, packed state. |
+| `keyframes` | yes | F-curve keyframe points: (frame,value) + interpolation + bezier handles. |
+| `lights` |  | Light datablocks: type, energy, color, shadow/nodes flags, type-specific params. |
+| `linestyles` |  | FreestyleLineStyle datablocks: base color, thickness, chaining, node usage. |
+| `masks` |  | Mask datablocks: 2D bezier masks with playback range and layer count. |
+| `material_gp_settings` | yes | Grease Pencil style settings on each GP material: stroke/fill colors, mix, texture, flags. |
+| `material_slots` | yes | Per-object material slots: which material is bound at each slot index. |
+| `materials` | yes | Material datablocks: nodes flag, GP flag, surface render method. |
+| `mesh_attributes` |  | Per-mesh generic attributes: built-ins + user data, with domain + type. |
+| `mesh_edges` |  | Per-mesh edges: vertex pair, seam/sharp/loose flags, edit-mode visibility. |
+| `mesh_loops` |  | Per-mesh polygon corners (loops): vertex/edge reference and corner normal. |
+| `mesh_polygons` |  | Per-mesh polygons (faces): material index, geometry, flags. |
+| `mesh_uvs` |  | Per-loop UV coordinates across every UV layer of every mesh. |
+| `mesh_vertices` |  | Per-mesh vertices: position, normal, hide/select flags. |
+| `meshes` |  | Mesh datablocks: vertex/edge/polygon/loop counts, UV+material counts. |
+| `modifiers` | yes | Per-object modifier stack with type and packed parameters. |
+| `movieclips` |  | MovieClip datablocks: filepath, duration, fps, resolution. |
+| `node_inputs` | yes | Input sockets on every node: identifier, type, default value, link status. |
+| `node_links` |  | Edges in every node tree: which output drives which input, mute/valid flags. |
+| `node_outputs` |  | Output sockets on every node: identifier, type, default value, link status. |
+| `node_tree_interface` |  | Per-node-group interface items: the group's exposed sockets and panels. |
+| `node_trees` |  | Every node tree in the file: standalone groups plus embedded trees. |
+| `nodes` |  | Nodes across every node tree: identity, type, layout, mute/hide flags. |
+| `objects` | yes | Scene objects: identity, type, transform, parent, first collection. |
+| `palette_colors` |  | Per-palette color entries: RGB plus weight/strength for paint tools. |
+| `palettes` |  | Palette datablocks: name, refcount, color count. |
+| `pose_bones` |  | Per-object pose-space bone transforms: location/rotation/scale relative to rest. |
+| `scene_objects` |  | Recursively flattened per-scene object list (walks nested collections). |
+| `scenes` |  | Scene datablocks: frame range, fps, render engine, camera/world bindings. |
+| `session_log` |  | In-memory audit ring of side-effecting calls (bpy_eval/bpy_exec/bpy_op/verbs). |
+| `shape_key_blocks` |  | Individual shape-key blocks: per-shape value, slider range, relative-to basis. |
+| `shape_keys` |  | Shape-key datablocks (Key): owning geometry, basis, blend mode, block count. |
+| `sounds` |  | Sound datablocks: filepath, refcount, cache + packed state. |
+| `texts` |  | TextCurve datablocks (3D text): body string, size, alignment, font. |
+| `vertex_groups` |  | Per-object vertex groups: name, slot index, lock flag. |
+| `vse_strip_color` |  | Color-strip extension: solid RGB fill (no alpha at the strip level). |
+| `vse_strip_image` |  | Image-strip extension: source directory, frame offsets into the sequence. |
+| `vse_strip_movie` |  | Movie-strip extension: source filepath, stream index, source fps. |
+| `vse_strip_scene` |  | Scene-strip extension: rendered source scene, camera override, input mode. |
+| `vse_strip_sound` |  | Sound-strip extension: bound sound datablock, volume/pan, pitch correction. |
+| `vse_strip_text` |  | Text-strip extension: text, font, size, color, anchor/alignment, outline/shadow. |
+| `vse_strips` |  | VSE strips (all kinds): timing, channel, blend, mute/lock, metastrip parent. |
+| `welcome` |  | Single-row file summary: Blender version, filepath, active scene, datablock counts. |
+| `worlds` |  | World datablocks: nodes flag and base color (background). |
+<!-- /BSQL-AUTOGEN:vtables -->
+
+Writable subset (these accept `UPDATE` / `INSERT` / `DELETE`):
+
+<!-- BSQL-AUTOGEN:writable-tables -->
+- `constraints`
+- `custom_properties`
+- `fcurves`
+- `gp_layers`
+- `gp_strokes`
+- `keyframes`
+- `material_gp_settings`
+- `material_slots`
+- `materials`
+- `modifiers`
+- `node_inputs`
+- `objects`
+<!-- /BSQL-AUTOGEN:writable-tables -->
+
 ---
 
 ## Session Bootstrap Contract
