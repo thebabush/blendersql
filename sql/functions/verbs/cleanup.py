@@ -25,7 +25,7 @@ from typing import Any
 import bpy
 
 from ...vtables.datablocks import DATABLOCK_KINDS
-from .._meta import function_meta
+from .._meta import Param, function_meta
 from ._common import VerbError, arg, envelope, opt_str
 
 
@@ -49,6 +49,15 @@ def _id_counts() -> dict[str, int]:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param(
+            'recursive',
+            'INTEGER',
+            required=False,
+            default_json='false',
+            hint='Truthy = recurse (orphans newly freed by the purge become free themselves).',
+        ),
+    ),
 )
 def purge_orphans(*args: Any) -> str:
     start = time.monotonic()
@@ -109,6 +118,15 @@ def _used_material_indices(obj: Any) -> set[int] | None:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param(
+            'object',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional object name; omit to walk every object with material slots.',
+        ),
+    ),
 )
 def remove_unused_material_slots(*args: Any) -> str:
     start = time.monotonic()

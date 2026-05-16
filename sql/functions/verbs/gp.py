@@ -14,7 +14,7 @@ from typing import Any
 
 import bpy
 
-from .._meta import function_meta
+from .._meta import Param, function_meta
 from ._common import (
     VerbError,
     arg,
@@ -37,6 +37,17 @@ from ._common import (
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('grease_pencil', 'TEXT', required=True, hint='GreasePencil v3 datablock name.'),
+        Param('name', 'TEXT', required=True, hint='Layer name (unique within the datablock).'),
+        Param(
+            'layer_group',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional existing layer group to place the new layer under.',
+        ),
+    ),
 )
 def gp_add_layer(*args: Any) -> str:
     start = time.monotonic()
@@ -70,6 +81,20 @@ def gp_add_layer(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('grease_pencil', 'TEXT', required=True, hint='GreasePencil v3 datablock name.'),
+        Param('layer', 'TEXT', required=True, hint='Existing layer name on the datablock.'),
+        Param(
+            'frame_number', 'INTEGER', required=True, hint='Frame number to create the keyframe at.'
+        ),
+        Param(
+            'keyframe_type',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional KEYFRAME / BREAKDOWN / EXTREME / JITTER / MOVING_HOLD.',
+        ),
+    ),
 )
 def gp_add_frame(*args: Any) -> str:
     start = time.monotonic()
@@ -107,6 +132,36 @@ def gp_add_frame(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('grease_pencil', 'TEXT', required=True, hint='GreasePencil v3 datablock name.'),
+        Param('layer', 'TEXT', required=True, hint='Existing layer name on the datablock.'),
+        Param(
+            'frame',
+            'INTEGER',
+            required=True,
+            hint='Frame number — must already exist (gp_add_frame first).',
+        ),
+        Param(
+            'points_json',
+            'JSON',
+            required=True,
+            hint='Stroke points as [{x,y,z,radius?,opacity?}, ...] or [[x,y,z], ...].',
+        ),
+        Param(
+            'material_index',
+            'INTEGER',
+            required=False,
+            default_json='null',
+            hint='Optional material slot index to assign the stroke.',
+        ),
+        Param(
+            'cyclic',
+            'INTEGER',
+            required=False,
+            default_json='null',
+            hint='Optional 0/1; close the stroke into a loop.',
+        ),
+    ),
 )
 def gp_add_stroke(*args: Any) -> str:
     start = time.monotonic()
@@ -157,6 +212,17 @@ def gp_add_stroke(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('grease_pencil', 'TEXT', required=True, hint='GreasePencil v3 datablock name.'),
+        Param('layer', 'TEXT', required=True, hint='Existing layer name on the datablock.'),
+        Param('frame', 'INTEGER', required=True, hint='Frame number of the drawing to resize.'),
+        Param(
+            'sizes_json',
+            'JSON',
+            required=True,
+            hint='Array of new point counts; one entry per stroke in the drawing.',
+        ),
+    ),
 )
 def gp_resize_strokes(*args: Any) -> str:
     start = time.monotonic()

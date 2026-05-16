@@ -69,6 +69,44 @@ def _synthetic_data() -> dict[str, list[dict[str, object]]]:
                 'description': 'Search every named bpy datablock.',
             },
         ],
+        'function_params': [
+            {
+                'function': 'add_object',
+                'position': 0,
+                'name': 'type',
+                'type': 'TEXT',
+                'required': 1,
+                'default_json': '',
+                'hint': 'Object type — MESH/EMPTY/...',
+            },
+            {
+                'function': 'add_object',
+                'position': 1,
+                'name': 'name',
+                'type': 'TEXT',
+                'required': 1,
+                'default_json': '',
+                'hint': 'Object name.',
+            },
+            {
+                'function': 'add_object',
+                'position': 2,
+                'name': 'location_json',
+                'type': 'JSON',
+                'required': 0,
+                'default_json': 'null',
+                'hint': '[x,y,z] location.',
+            },
+            {
+                'function': 'bpy_eval',
+                'position': 0,
+                'name': 'expr',
+                'type': 'TEXT',
+                'required': 1,
+                'default_json': '',
+                'hint': 'Python expression.',
+            },
+        ],
     }
 
 
@@ -175,6 +213,38 @@ def test_unknown_kind_raises_setup_error() -> None:
     with pytest.raises(rs._SetupError) as exc:
         rs._rewrite(src, data, Path('synthetic.md'))
     assert 'unknown marker kind' in str(exc.value)
+
+
+def test_parameterized_function_params_marker_renders_full_table() -> None:
+    """`function-params=<name>` filters to one function and lays out a 6-col table."""
+    data = _synthetic_data()
+    src = (
+        'before\n'
+        '<!-- BSQL-AUTOGEN:function-params=add_object -->old'
+        '<!-- /BSQL-AUTOGEN:function-params=add_object -->\n'
+        'after'
+    )
+    out = rs._rewrite(src, data, Path('synthetic.md'))
+    # Header rendered.
+    assert '| pos | name | type | required | default | hint |' in out
+    # Required rows have an empty default cell.
+    assert '| 0 | `type` | TEXT | yes |  |' in out
+    # Optional rows surface the JSON default.
+    assert '| 2 | `location_json` | JSON |  | null |' in out
+    # Other functions filtered out.
+    assert '`expr`' not in out
+
+
+def test_parameterized_function_params_unknown_function_raises() -> None:
+    """Empty match must surface as a setup error, never render an empty body."""
+    data = _synthetic_data()
+    src = (
+        '<!-- BSQL-AUTOGEN:function-params=not_a_function -->x'
+        '<!-- /BSQL-AUTOGEN:function-params=not_a_function -->'
+    )
+    with pytest.raises(rs._SetupError) as exc:
+        rs._rewrite(src, data, Path('synthetic.md'))
+    assert 'not_a_function' in str(exc.value)
 
 
 def test_md_escape_cell_wraps_marker_lookalikes() -> None:

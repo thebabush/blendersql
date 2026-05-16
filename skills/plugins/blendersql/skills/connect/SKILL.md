@@ -102,6 +102,7 @@ The full catalog, regenerated from the live registry (do not edit by hand — ru
 | `bones` |  | Rest-pose bones from armature data: hierarchy, deform flags, head/tail in local space. |
 | `brushes` |  | Brush datablocks: per-mode tool type, size/strength, blend mode, params blob. |
 | `bsql_columns` |  | Per-column metadata across every registered vtable. |
+| `bsql_function_params` |  | Per-parameter metadata for every registered SQL function. |
 | `bsql_functions` |  | Self-describing catalog of every SQL scalar function + verb. |
 | `bsql_related` |  | Long form of bsql_tables.related: one row per (table, related-table) edge. |
 | `bsql_tables` |  | Self-describing catalog of every blendersql vtable. |

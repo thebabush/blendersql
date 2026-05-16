@@ -10,7 +10,7 @@ import bpy
 
 from ...vtables._params import apply_params_json
 from ...vtables.datablocks import RESOLVE_CONTAINER
-from .._meta import function_meta
+from .._meta import Param, function_meta
 from ._common import (
     VerbError,
     arg,
@@ -58,6 +58,26 @@ _DATA_NEW_TYPE: dict[str, str] = {'CURVE': 'CURVE', 'SURFACE': 'SURFACE', 'FONT'
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('type', 'TEXT', required=True, hint='Object type — MESH/EMPTY/CURVE/LIGHT/...'),
+        Param(
+            'name', 'TEXT', required=True, hint='Object name (also used for the data datablock).'
+        ),
+        Param(
+            'location_json',
+            'JSON',
+            required=False,
+            default_json='null',
+            hint='Optional [x,y,z] world-space location.',
+        ),
+        Param(
+            'collection',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Collection name to link into; defaults to the active scene collection.',
+        ),
+    ),
 )
 def add_object(*args: Any) -> str:
     start = time.monotonic()
@@ -111,6 +131,17 @@ def add_object(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('object', 'TEXT', required=True, hint='Object name to attach the modifier to.'),
+        Param('type', 'TEXT', required=True, hint='Modifier type (SUBSURF / SOLIDIFY / ...).'),
+        Param(
+            'params_json',
+            'JSON',
+            required=False,
+            default_json='{}',
+            hint='JSON object of modifier attributes to set after creation.',
+        ),
+    ),
 )
 def add_modifier(*args: Any) -> str:
     start = time.monotonic()
@@ -151,6 +182,26 @@ def add_modifier(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('object', 'TEXT', required=True, hint='Object name to attach the constraint to.'),
+        Param(
+            'type', 'TEXT', required=True, hint='Constraint type (COPY_LOCATION / TRACK_TO / ...).'
+        ),
+        Param(
+            'target',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional target object name for constraints with a target slot.',
+        ),
+        Param(
+            'params_json',
+            'JSON',
+            required=False,
+            default_json='{}',
+            hint='JSON object of constraint attributes to set after creation.',
+        ),
+    ),
 )
 def add_constraint(*args: Any) -> str:
     start = time.monotonic()
@@ -199,6 +250,43 @@ def add_constraint(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param(
+            'datablock_type',
+            'TEXT',
+            required=True,
+            hint='Datablock kind (OBJECT / MATERIAL / NODETREE / ...).',
+        ),
+        Param('datablock_name', 'TEXT', required=True, hint='Datablock name within its container.'),
+        Param(
+            'data_path',
+            'TEXT',
+            required=True,
+            hint='RNA data path to key (e.g. "location" or "data.lens").',
+        ),
+        Param('frame', 'INTEGER', required=True, hint='Frame number to insert the keyframe at.'),
+        Param(
+            'value',
+            'ANY',
+            required=False,
+            default_json='null',
+            hint='Optional value to assign before keying; scalar or JSON-encoded array.',
+        ),
+        Param(
+            'array_index',
+            'INTEGER',
+            required=False,
+            default_json='-1',
+            hint='Vector component index; -1 (default) keys the whole vector.',
+        ),
+        Param(
+            'interpolation',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional keyframe interpolation (CONSTANT / LINEAR / BEZIER / ...).',
+        ),
+    ),
 )
 def set_keyframe(*args: Any) -> str:
     start = time.monotonic()
@@ -264,6 +352,30 @@ def set_keyframe(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param(
+            'datablock_type',
+            'TEXT',
+            required=True,
+            hint='Datablock kind (OBJECT / MATERIAL / NODETREE / ...).',
+        ),
+        Param('datablock_name', 'TEXT', required=True, hint='Datablock name within its container.'),
+        Param('data_path', 'TEXT', required=True, hint='RNA data path the fcurve will animate.'),
+        Param(
+            'array_index',
+            'INTEGER',
+            required=False,
+            default_json='0',
+            hint='Vector component index (default 0 = first / scalar).',
+        ),
+        Param(
+            'group_name',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional fcurve channel group name.',
+        ),
+    ),
 )
 def ensure_fcurve(*args: Any) -> str:
     start = time.monotonic()

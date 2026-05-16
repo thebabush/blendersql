@@ -14,7 +14,7 @@ from typing import Any
 
 import bpy
 
-from .._meta import function_meta
+from .._meta import Param, function_meta
 from ._common import (
     VerbError,
     arg,
@@ -37,6 +37,19 @@ from ._common import (
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('scene', 'TEXT', required=True, hint='Scene name owning the sequence_editor.'),
+        Param(
+            'sound',
+            'TEXT',
+            required=True,
+            hint='bpy.data.sounds name; strip filepath is taken from this datablock.',
+        ),
+        Param('channel', 'INTEGER', required=True, hint='VSE channel index (1-based).'),
+        Param(
+            'frame_start', 'INTEGER', required=True, hint='Timeline frame where the strip starts.'
+        ),
+    ),
 )
 def vse_add_sound(*args: Any) -> str:
     start = time.monotonic()
@@ -67,6 +80,19 @@ def vse_add_sound(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('scene', 'TEXT', required=True, hint='Scene name owning the sequence_editor.'),
+        Param(
+            'filepath',
+            'TEXT',
+            required=True,
+            hint='On-disk movie path; strip is named after the file.',
+        ),
+        Param('channel', 'INTEGER', required=True, hint='VSE channel index (1-based).'),
+        Param(
+            'frame_start', 'INTEGER', required=True, hint='Timeline frame where the strip starts.'
+        ),
+    ),
 )
 def vse_add_movie(*args: Any) -> str:
     start = time.monotonic()
@@ -96,6 +122,19 @@ def vse_add_movie(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('scene', 'TEXT', required=True, hint='Scene name owning the sequence_editor.'),
+        Param(
+            'source_scene',
+            'TEXT',
+            required=True,
+            hint='Scene to nest as a strip; must resolve to bpy.data.scenes.',
+        ),
+        Param('channel', 'INTEGER', required=True, hint='VSE channel index (1-based).'),
+        Param(
+            'frame_start', 'INTEGER', required=True, hint='Timeline frame where the strip starts.'
+        ),
+    ),
 )
 def vse_add_scene_strip(*args: Any) -> str:
     start = time.monotonic()
@@ -126,6 +165,21 @@ def vse_add_scene_strip(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('scene', 'TEXT', required=True, hint='Scene name owning the sequence_editor.'),
+        Param('text', 'TEXT', required=True, hint='Text body assigned to the new strip.'),
+        Param('channel', 'INTEGER', required=True, hint='VSE channel index (1-based).'),
+        Param(
+            'frame_start', 'INTEGER', required=True, hint='Timeline frame where the strip starts.'
+        ),
+        Param(
+            'frame_end',
+            'INTEGER',
+            required=False,
+            default_json='null',
+            hint='Optional exclusive end frame; translated to strip length.',
+        ),
+    ),
 )
 def vse_add_text(*args: Any) -> str:
     start = time.monotonic()
@@ -156,6 +210,26 @@ def vse_add_text(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('scene', 'TEXT', required=True, hint='Scene name owning the sequence_editor.'),
+        Param(
+            'color_json',
+            'JSON',
+            required=True,
+            hint='[r,g,b] float array assigned to the new strip.',
+        ),
+        Param('channel', 'INTEGER', required=True, hint='VSE channel index (1-based).'),
+        Param(
+            'frame_start', 'INTEGER', required=True, hint='Timeline frame where the strip starts.'
+        ),
+        Param(
+            'frame_end',
+            'INTEGER',
+            required=False,
+            default_json='null',
+            hint='Optional exclusive end frame; translated to strip length.',
+        ),
+    ),
 )
 def vse_add_color(*args: Any) -> str:
     start = time.monotonic()

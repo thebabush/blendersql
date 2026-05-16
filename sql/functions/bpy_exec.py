@@ -11,7 +11,7 @@ import bpy
 import mathutils
 
 from . import audit
-from ._meta import function_meta
+from ._meta import Param, function_meta
 from .jsonify import to_jsonable
 
 
@@ -38,6 +38,14 @@ class _ExecResult:
     ),
     return_shape='string',
     side_effects=True,
+    params=(
+        Param(
+            'code',
+            'TEXT',
+            required=True,
+            hint='Python source executed in a {bpy, mathutils} scope; set `result` to surface a value.',
+        ),
+    ),
 )
 def bpy_exec(code: str) -> str:
     start = time.monotonic()

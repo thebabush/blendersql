@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..functions._meta import function_meta
+from ..functions._meta import Param, function_meta
 from ._meta import VTableMeta
 
 if TYPE_CHECKING:
@@ -146,6 +146,7 @@ def register_all(engine: Engine) -> None:
     _bind(engine, 'bsql_columns', bsql.BsqlColumns())
     _bind(engine, 'bsql_related', bsql.BsqlRelated())
     _bind(engine, 'bsql_functions', bsql.BsqlFunctions())
+    _bind(engine, 'bsql_function_params', bsql.BsqlFunctionParams())
 
     engine.conn.createscalarfunction('grep', _grep_scalar, -1, deterministic=False)
     # Surface the grep scalar in the bsql_functions catalog alongside the
@@ -180,6 +181,28 @@ def _bind(engine: Engine, table_name: str, source: VTableMeta) -> None:
     ),
     return_shape='json',
     side_effects=False,
+    params=(
+        Param(
+            'pattern',
+            'TEXT',
+            required=True,
+            hint='Match pattern; LIKE wildcards (%, _) supported, bare needles are case-insensitive substrings.',
+        ),
+        Param(
+            'limit',
+            'INTEGER',
+            required=False,
+            default_json='-1',
+            hint='Max rows to return; -1 (default) means no limit.',
+        ),
+        Param(
+            'offset',
+            'INTEGER',
+            required=False,
+            default_json='0',
+            hint='Rows to skip before returning matches.',
+        ),
+    ),
 )
 def _grep_scalar(*args: object) -> str:
     from . import grep

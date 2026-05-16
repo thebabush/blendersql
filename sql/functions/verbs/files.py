@@ -19,7 +19,7 @@ from typing import Any
 import bpy
 import mathutils
 
-from .._meta import function_meta
+from .._meta import Param, function_meta
 from ._common import VerbError, arg, envelope, opt_int, opt_str, parse_json_list, require_str, trunc
 
 # format -> (import_operator_path, export_operator_path); None where unavailable.
@@ -58,6 +58,15 @@ _EXT_FORMAT: dict[str, str] = {
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param(
+            'filepath',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional new .blend path; must be supplied if the file has never been saved.',
+        ),
+    ),
 )
 def save(*args: Any) -> str:
     start = time.monotonic()
@@ -89,6 +98,14 @@ def save(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param(
+            'filepath',
+            'TEXT',
+            required=True,
+            hint='Path to the .blend file to open (replaces current state).',
+        ),
+    ),
 )
 def load(*args: Any) -> str:
     start = time.monotonic()
@@ -117,6 +134,29 @@ def load(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param(
+            'scene',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional scene name; defaults to the active scene.',
+        ),
+        Param(
+            'filepath',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional override for scene.render.filepath.',
+        ),
+        Param(
+            'frame',
+            'INTEGER',
+            required=False,
+            default_json='0',
+            hint='Optional frame to render; 0 (default) keeps the current frame.',
+        ),
+    ),
 )
 def render(*args: Any) -> str:
     start = time.monotonic()
@@ -156,6 +196,30 @@ def render(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('object', 'TEXT', required=True, hint='Object name to thumbnail.'),
+        Param(
+            'frame',
+            'INTEGER',
+            required=False,
+            default_json='null',
+            hint='Optional frame; for GP picks the busiest frame automatically when omitted.',
+        ),
+        Param(
+            'filepath',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional PNG output path; defaults to a tempfile.',
+        ),
+        Param(
+            'size',
+            'INTEGER',
+            required=False,
+            default_json='512',
+            hint='Square render resolution in pixels (default 512).',
+        ),
+    ),
 )
 def render_object(*args: Any) -> str:
     start = time.monotonic()
@@ -290,6 +354,16 @@ def _render_isolated(obj: Any, src_scene: Any, frame: int, size: int, filepath: 
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('filepath', 'TEXT', required=True, hint='Path to the source file to import.'),
+        Param(
+            'format',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional OBJ/FBX/GLTF/STL/PLY/USD/X3D; inferred from extension when omitted.',
+        ),
+    ),
 )
 def import_file(*args: Any) -> str:
     start = time.monotonic()
@@ -328,6 +402,23 @@ def import_file(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('filepath', 'TEXT', required=True, hint='Output path the exporter writes to.'),
+        Param(
+            'format',
+            'TEXT',
+            required=False,
+            default_json='null',
+            hint='Optional OBJ/FBX/GLTF/STL/PLY/USD/X3D; inferred from extension when omitted.',
+        ),
+        Param(
+            'selection_json',
+            'JSON',
+            required=False,
+            default_json='null',
+            hint='Optional array of object names to select before exporting.',
+        ),
+    ),
 )
 def export_file(*args: Any) -> str:
     start = time.monotonic()

@@ -7,7 +7,7 @@ import bpy
 import mathutils
 
 from . import audit
-from ._meta import function_meta
+from ._meta import Param, function_meta
 from .jsonify import to_jsonable
 
 
@@ -22,6 +22,14 @@ from .jsonify import to_jsonable
     ),
     return_shape='json',
     side_effects=False,
+    params=(
+        Param(
+            'expr',
+            'TEXT',
+            required=True,
+            hint='Python expression evaluated in a {bpy, mathutils} scope.',
+        ),
+    ),
 )
 def bpy_eval(expr: str) -> str:
     start = time.monotonic()

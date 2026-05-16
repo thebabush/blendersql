@@ -48,6 +48,8 @@ Parameterized kinds (argument after `=`, alphanumeric + underscore):
 
 * `vtables-domain=<name>`     — same shape as `vtables`, filtered to a domain.
 * `vtable-count-domain=<name>` — scalar: per-domain vtable count.
+* `function-params=<name>`     — per-parameter table for one function:
+                                 `| pos | name | type | required | default | hint |`.
 
 Bare invocation defaults to --check because an accidental write that silently
 rewrites docs is worse than an accidental check.
@@ -133,6 +135,11 @@ _QUERIES: tuple[tuple[str, str], ...] = (
     (
         'functions',
         'SELECT name, kind, side_effects, description FROM bsql_functions ORDER BY kind, name;',
+    ),
+    (
+        'function_params',
+        'SELECT function, position, name, type, required, default_json, hint '
+        'FROM bsql_function_params ORDER BY function, position;',
     ),
 )
 
@@ -399,9 +406,43 @@ def _gen_vtable_count_domain(arg: str, data: dict[str, list[dict[str, Any]]]) ->
     return str(len(rows))
 
 
+def _gen_function_params(arg: str, data: dict[str, list[dict[str, Any]]]) -> str:
+    """Render the parameter table for one SQL function.
+
+    Layout matches the other tabular generators — sortable by position so
+    required args sit on top, defaults visible inline. Empty `default_json` on
+    required params is collapsed to an empty cell so the table reads cleanly.
+    Zero matches surface as `_SetupError`: a typo here would render an empty
+    body that looks like real (but missing) data.
+    """
+    rows = [r for r in data['function_params'] if r.get('function') == arg]
+    if not rows:
+        raise _SetupError(
+            f'function-params={arg!r} matched zero rows — '
+            'unknown function name or undocumented params. '
+            'Cross-check against `SELECT name FROM bsql_functions`.'
+        )
+    lines = [
+        '',
+        '| pos | name | type | required | default | hint |',
+        '|---|---|---|---|---|---|',
+    ]
+    for r in rows:
+        pos = r['position']
+        required = 'yes' if int(r['required']) else ''
+        default = '' if int(r['required']) else _md_escape_cell(str(r['default_json'] or ''))
+        lines.append(
+            f'| {pos} | `{r["name"]}` | {r["type"]} | {required} | {default} '
+            f'| {_md_escape_cell(str(r["hint"] or ""))} |'
+        )
+    lines.append('')
+    return '\n'.join(lines)
+
+
 _PARAM_GENERATORS: dict[str, ParamGenerator] = {
     'vtables-domain': _gen_vtables_domain,
     'vtable-count-domain': _gen_vtable_count_domain,
+    'function-params': _gen_function_params,
 }
 
 

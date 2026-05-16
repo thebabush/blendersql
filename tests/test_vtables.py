@@ -23,7 +23,13 @@ from fixtures.expected import EXPECTED
 # below. Keep them in the inventory's expected set so drift is still detected
 # here.
 _INTROSPECTION_TABLES: frozenset[str] = frozenset(
-    {'bsql_tables', 'bsql_columns', 'bsql_related', 'bsql_functions'}
+    {
+        'bsql_tables',
+        'bsql_columns',
+        'bsql_related',
+        'bsql_functions',
+        'bsql_function_params',
+    }
 )
 
 ALL_TABLES: list[str] = sorted(EXPECTED.keys())
@@ -564,6 +570,20 @@ def test_every_bsql_function_has_metadata(client) -> None:
     assert r['ok'], r
     assert r['rows'] == [], r['rows']
 
+    # Phase-5 addendum: variadic functions (arity=-1) are typed only through
+    # `params`; an empty Param tuple on a variadic verb is a documentation gap
+    # the introspection layer would happily ship. Require at least one Param
+    # row for every variadic entry. The `escape_hatch` arity=1 functions
+    # (bpy_eval / bpy_exec) are likewise documented; this filter catches both.
+    r2 = client.query(
+        'SELECT f.name FROM bsql_functions f '
+        'LEFT JOIN bsql_function_params p ON p.function=f.name '
+        'GROUP BY f.name '
+        'HAVING COUNT(p.name) = 0'
+    )
+    assert r2['ok'], r2
+    assert r2['rows'] == [], f'functions without Param metadata: {r2["rows"]}'
+
 
 def test_bsql_functions_count_matches_registry(client) -> None:
     # Mirror of test_bsql_tables_count_matches_registry. The registry lives
@@ -653,3 +673,147 @@ def test_columns_match_schema(client) -> None:
         assert not in_meta_not_schema, (
             f'{table}: in COLUMNS but missing from schema: {sorted(in_meta_not_schema)}'
         )
+
+
+# ---------------------------------------------------------------------------
+# bsql_function_params — per-parameter metadata across every SQL function
+
+
+def test_bsql_function_params_schema(client) -> None:
+    r = client.query('PRAGMA table_info(bsql_function_params)')
+    assert r['ok'], r
+    cols = [row[1] for row in r['rows']]
+    assert cols == [
+        'function',
+        'position',
+        'name',
+        'type',
+        'required',
+        'default_json',
+        'hint',
+    ]
+
+
+def test_bsql_function_params_count_matches_metadata(client) -> None:
+    # COUNT(*) FROM bsql_function_params must equal the total Param count across
+    # the function registry. Without a registry-side projection (Params don't
+    # show up in bsql_functions today), we cross-check the count against an
+    # in-Blender enumeration via bpy_exec — same pattern as the snapshot-cache
+    # tests. The minimum is the documented param shape (>=1 param per non-arg-
+    # less function); the equality check pins exact behaviour.
+    import json
+
+    code = (
+        'import sys\n'
+        'registry = next(m for n, m in sys.modules.items() if n.endswith(".sql.functions.registry"))\n'
+        'reg = registry.functions_registry()\n'
+        'result = sum(len(meta.params) for meta in reg.values())\n'
+    )
+    blender_total = client.query(f"SELECT bpy_exec('{code}')")
+    assert blender_total['ok'], blender_total
+    payload = json.loads(blender_total['rows'][0][0])
+    assert payload.get('error') is None, payload
+    expected = payload['result']
+
+    actual = client.query('SELECT COUNT(*) FROM bsql_function_params')
+    assert actual['ok'], actual
+    assert actual['rows'][0][0] == expected, (actual, expected)
+
+
+def test_bsql_function_params_join_with_functions(client) -> None:
+    # Every row's `function` must JOIN cleanly against bsql_functions.name.
+    # A LEFT JOIN that turns up NULL means a Param escaped without an owning
+    # FunctionMeta — that should be impossible (params are stored on the meta
+    # itself) but the guard pins it.
+    r = client.query(
+        'SELECT p.function FROM bsql_function_params p '
+        'LEFT JOIN bsql_functions f ON f.name=p.function '
+        'WHERE f.name IS NULL '
+        'GROUP BY p.function'
+    )
+    assert r['ok'], r
+    assert r['rows'] == [], f'orphan function names in bsql_function_params: {r["rows"]}'
+
+
+def test_every_function_has_documented_params_when_arity_known(client) -> None:
+    # Every variadic (arity=-1) function carries a typed param list — that's
+    # the whole point of Phase 5. The escape hatches with arity>=1 (bpy_eval,
+    # bpy_exec) are also documented and likewise get caught here. The set of
+    # functions with zero params should always be empty.
+    r = client.query(
+        'SELECT f.name, f.arity FROM bsql_functions f '
+        'LEFT JOIN bsql_function_params p ON p.function=f.name '
+        'GROUP BY f.name '
+        'HAVING COUNT(p.name) = 0 '
+        'ORDER BY f.name'
+    )
+    assert r['ok'], r
+    assert r['rows'] == [], f'functions without documented params: {r["rows"]}'
+
+
+def test_bsql_function_params_required_first_then_optional(client) -> None:
+    # Conventional shape: every required param appears at a lower `position`
+    # than every optional param within the same function. Catches a verb that
+    # accidentally interleaved an optional arg before a required one.
+    r = client.query(
+        'SELECT a.function FROM bsql_function_params a '
+        'JOIN bsql_function_params b '
+        'ON a.function=b.function AND a.position < b.position '
+        'WHERE a.required=0 AND b.required=1 '
+        'GROUP BY a.function '
+        'ORDER BY a.function'
+    )
+    assert r['ok'], r
+    assert r['rows'] == [], f'optional-before-required params: {r["rows"]}'
+
+
+def test_bsql_function_params_default_json_only_on_optional(client) -> None:
+    # Required params carry an empty `default_json`; optional params carry a
+    # non-empty JSON-encoded default. A required-with-default would imply
+    # contradictory semantics — fix the Param decl, not the test.
+    r = client.query(
+        'SELECT function, name FROM bsql_function_params '
+        "WHERE required=1 AND default_json != '' "
+        'ORDER BY function, position'
+    )
+    assert r['ok'], r
+    assert r['rows'] == [], f'required params with non-empty default_json: {r["rows"]}'
+
+
+def test_bsql_function_params_types_in_known_set(client) -> None:
+    # Param.type follows the same enum-as-string discipline as Column.type.
+    r = client.query(
+        'SELECT DISTINCT type FROM bsql_function_params '
+        "WHERE type NOT IN ('TEXT','REAL','INTEGER','JSON','ANY')"
+    )
+    assert r['ok'], r
+    assert r['rows'] == [], f'unexpected Param.type values: {r["rows"]}'
+
+
+def test_bsql_function_params_snapshot_is_cached(client) -> None:
+    # Mirror of test_bsql_functions_snapshot_is_cached — the params vtable
+    # shares the functions_version() counter for invalidation.
+    import json
+
+    code = (
+        'import sys\n'
+        'bsql = next(m for n, m in sys.modules.items() if n.endswith(".sql.vtables.bsql"))\n'
+        'registry = next(m for n, m in sys.modules.items() if n.endswith(".sql.functions.registry"))\n'
+        '\n'
+        'v_before = registry.functions_version()\n'
+        'f = bsql.BsqlFunctionParams()\n'
+        'r1 = f.snapshot(); r2 = f.snapshot()\n'
+        'result = {\n'
+        '    "rows_same": r1 is r2,\n'
+        '    "version_stable": registry.functions_version() == v_before,\n'
+        '    "rows_len": len(r1),\n'
+        '}\n'
+    )
+    r = client.query(f"SELECT bpy_exec('{code}')")
+    assert r['ok'], r
+    payload = json.loads(r['rows'][0][0])
+    assert payload.get('error') is None, payload
+    res = payload['result']
+    assert res['rows_same'], res
+    assert res['version_stable'], res
+    assert res['rows_len'] > 0, res

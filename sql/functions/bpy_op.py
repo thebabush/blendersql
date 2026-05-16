@@ -8,7 +8,7 @@ from typing import Any
 import bpy
 
 from . import audit
-from ._meta import function_meta
+from ._meta import Param, function_meta
 from .jsonify import to_jsonable
 
 
@@ -44,6 +44,28 @@ _OBJECT_LIST_KEYS = ('selected_objects', 'selected_editable_objects')
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param(
+            'operator',
+            'TEXT',
+            required=True,
+            hint='Dotted bpy.ops path (e.g. mesh.primitive_cube_add).',
+        ),
+        Param(
+            'params_json',
+            'JSON',
+            required=False,
+            default_json='{}',
+            hint='JSON object of operator kwargs; empty / null for no params.',
+        ),
+        Param(
+            'context_override_json',
+            'JSON',
+            required=False,
+            default_json='{}',
+            hint='JSON object passed to bpy.context.temp_override; string IDs resolved to bpy data.',
+        ),
+    ),
 )
 def bpy_op(*args: Any) -> str:
     start = time.monotonic()

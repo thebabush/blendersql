@@ -8,7 +8,7 @@ from typing import Any
 import bpy
 
 from ...vtables.node_trees import iter_trees
-from .._meta import function_meta
+from .._meta import Param, function_meta
 from ._common import (
     VerbError,
     arg,
@@ -31,6 +31,34 @@ from ._common import (
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param(
+            'tree_owner',
+            'TEXT',
+            required=True,
+            hint='Datablock name owning the node tree (material/world/scene/...).',
+        ),
+        Param(
+            'node_type',
+            'TEXT',
+            required=True,
+            hint='bpy.types.ShaderNode* class name to instantiate.',
+        ),
+        Param(
+            'location_json',
+            'JSON',
+            required=False,
+            default_json='null',
+            hint='Optional [x,y] node-editor position.',
+        ),
+        Param(
+            'params_json',
+            'JSON',
+            required=False,
+            default_json='{}',
+            hint='JSON object of node attributes to set after creation.',
+        ),
+    ),
 )
 def add_node(*args: Any) -> str:
     start = time.monotonic()
@@ -72,6 +100,23 @@ def add_node(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('tree_owner', 'TEXT', required=True, hint='Datablock name owning the node tree.'),
+        Param('from_node', 'TEXT', required=True, hint='Source node name in tree.nodes.'),
+        Param(
+            'from_socket',
+            'TEXT',
+            required=True,
+            hint='Output socket name/identifier; use "#<index>" for duplicates.',
+        ),
+        Param('to_node', 'TEXT', required=True, hint='Destination node name in tree.nodes.'),
+        Param(
+            'to_socket',
+            'TEXT',
+            required=True,
+            hint='Input socket name/identifier; use "#<index>" for duplicates.',
+        ),
+    ),
 )
 def link_nodes(*args: Any) -> str:
     start = time.monotonic()
@@ -112,6 +157,15 @@ def link_nodes(*args: Any) -> str:
     ),
     return_shape='json_envelope',
     side_effects=True,
+    params=(
+        Param('tree_owner', 'TEXT', required=True, hint='Datablock name owning the node tree.'),
+        Param(
+            'spec_json',
+            'JSON',
+            required=True,
+            hint='{nodes: [{type, name?, location?, params?}], links: [{from_node, from_socket, to_node, to_socket}], clear?: bool}.',
+        ),
+    ),
 )
 def build_node_tree(*args: Any) -> str:
     start = time.monotonic()

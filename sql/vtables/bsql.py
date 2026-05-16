@@ -11,6 +11,10 @@ instead of N describe_table calls.
 per escape hatch, typed verb, or scalar (currently 29 entries: 25 verbs +
 3 escape hatches + 1 scalar). Same pattern, separate registry — see
 `sql/functions/registry.py`.
+`bsql_function_params` zooms in one level: one row per `Param` declared on a
+function's `FunctionMeta`, with the same identity/JOIN shape as
+`bsql_columns` over `bsql_tables`. Required params come first; optional ones
+carry `default_json`.
 
 This is the entry point of the metadata pipeline tracked in issue #5: as
 each vtable migrates its class-attr metadata, all four introspection
@@ -53,7 +57,12 @@ class BsqlTables(IteratorVTable):
             'related', 'TEXT', hint='Comma-separated list of related table names (may be empty).'
         ),
     )
-    RELATED: tuple[str, ...] = ('bsql_columns', 'bsql_related', 'bsql_functions')
+    RELATED: tuple[str, ...] = (
+        'bsql_columns',
+        'bsql_related',
+        'bsql_functions',
+        'bsql_function_params',
+    )
     schema = (
         'CREATE TABLE bsql_tables('
         'name TEXT, '
@@ -133,7 +142,12 @@ class BsqlColumns(IteratorVTable):
         ),
         Column('hint', 'TEXT', hint='One-line agent-facing description; may be empty.'),
     )
-    RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_related', 'bsql_functions')
+    RELATED: tuple[str, ...] = (
+        'bsql_tables',
+        'bsql_related',
+        'bsql_functions',
+        'bsql_function_params',
+    )
     DOMAIN = 'introspection'
     schema = (
         'CREATE TABLE bsql_columns('
@@ -194,7 +208,12 @@ class BsqlRelated(IteratorVTable):
         Column('a', 'TEXT', identifier=True, hint='Source table (bsql_tables.name).'),
         Column('b', 'TEXT', identifier=True, hint='Related table (bsql_tables.name).'),
     )
-    RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_columns', 'bsql_functions')
+    RELATED: tuple[str, ...] = (
+        'bsql_tables',
+        'bsql_columns',
+        'bsql_functions',
+        'bsql_function_params',
+    )
     DOMAIN = 'introspection'
     schema = 'CREATE TABLE bsql_related(a TEXT, b TEXT)'
 
@@ -249,7 +268,12 @@ class BsqlFunctions(IteratorVTable):
             hint='Boolean as 0/1; 1 if the function mutates Blender state.',
         ),
     )
-    RELATED: tuple[str, ...] = ('bsql_tables', 'bsql_columns', 'bsql_related')
+    RELATED: tuple[str, ...] = (
+        'bsql_tables',
+        'bsql_columns',
+        'bsql_related',
+        'bsql_function_params',
+    )
     DOMAIN = 'introspection'
     schema = (
         'CREATE TABLE bsql_functions('
@@ -290,6 +314,103 @@ class BsqlFunctions(IteratorVTable):
                     int(meta.side_effects),
                 )
             )
+        self._cached_rows = rows
+        self._cached_version = v
+        return self._cached_rows
+
+
+class BsqlFunctionParams(IteratorVTable):
+    """One row per parameter across every registered SQL function."""
+
+    table_name = 'bsql_function_params'
+    DESCRIPTION = 'Per-parameter metadata for every registered SQL function.'
+    AGENT_HINT = (
+        'JOIN bsql_functions ON bsql_functions.name=bsql_function_params.function '
+        'to see what arguments each verb / escape-hatch takes. Required params '
+        "come first; optional ones carry default_json. Empty for grep's HIDDEN "
+        'bind column (that lives in bsql_columns).'
+    )
+    DOMAIN = 'introspection'
+    COLUMNS: tuple[Column, ...] = (
+        Column(
+            'function',
+            'TEXT',
+            identifier=True,
+            hint='Owning bsql_functions.name.',
+        ),
+        Column(
+            'position',
+            'INTEGER',
+            identifier=True,
+            hint='0-based positional index.',
+        ),
+        Column('name', 'TEXT', hint='Parameter name.'),
+        Column(
+            'type',
+            'TEXT',
+            hint='TEXT / REAL / INTEGER / JSON / ANY (best-effort).',
+        ),
+        Column(
+            'required',
+            'INTEGER',
+            hint='Boolean as 0/1.',
+        ),
+        Column(
+            'default_json',
+            'TEXT',
+            hint='JSON-encoded default; empty when required=1.',
+        ),
+        Column(
+            'hint',
+            'TEXT',
+            hint='Per-parameter description.',
+        ),
+    )
+    RELATED: tuple[str, ...] = (
+        'bsql_functions',
+        'bsql_tables',
+        'bsql_columns',
+        'bsql_related',
+    )
+    schema = (
+        'CREATE TABLE bsql_function_params('
+        'function TEXT, '
+        'position INTEGER, '
+        'name TEXT, '
+        'type TEXT, '
+        'required INTEGER, '
+        'default_json TEXT, '
+        'hint TEXT)'
+    )
+
+    # Snapshot cache mirrors BsqlFunctions — keyed on functions_version() because
+    # params are part of the same FunctionMeta records the function registry owns.
+    def __init__(self) -> None:
+        self._cached_version: int = -1
+        self._cached_rows: list[tuple[Any, ...]] = []
+
+    def snapshot(self) -> list[tuple[Any, ...]]:
+        from ..functions.registry import functions_registry, functions_version
+
+        v = functions_version()
+        if v == self._cached_version:
+            return self._cached_rows
+        reg = functions_registry()
+        rows: list[tuple[Any, ...]] = []
+        for name in sorted(reg):
+            meta = reg[name]
+            for pos, param in enumerate(meta.params):
+                rows.append(
+                    (
+                        meta.name,
+                        pos,
+                        param.name,
+                        param.type,
+                        int(param.required),
+                        param.default_json,
+                        param.hint,
+                    )
+                )
         self._cached_rows = rows
         self._cached_version = v
         return self._cached_rows
