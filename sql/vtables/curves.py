@@ -4,6 +4,7 @@ from typing import Any
 
 import bpy
 
+from ._meta import Column
 from .base import IteratorVTable
 
 # bpy.data.curves contains both Curve and TextCurve datablocks; TextCurve is a
@@ -14,6 +15,23 @@ from .base import IteratorVTable
 
 
 class Curves(IteratorVTable):
+    DESCRIPTION = 'Curve datablocks: dimensions, bevel/fill settings, spline count.'
+    AGENT_HINT = (
+        'Top of the curve tree (curves -> curve_splines -> curve_points). Includes TextCurve datablocks '
+        'too — for text-only views use the `texts` vtable. Read-only; mutate via bpy_exec. '
+        'JOIN objects ON objects.data=curves.name to find curve objects; JOIN curve_splines ON '
+        'curve_splines.curve=curves.name to walk geometry.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', pk=True, hint='Unique within bpy.data.curves.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('dimensions', 'TEXT', hint="'2D' or '3D'."),
+        Column('bevel_depth', 'REAL', hint='Round-bevel radius along the curve.'),
+        Column('bevel_mode', 'TEXT', hint='ROUND / OBJECT / PROFILE.'),
+        Column('fill_mode', 'TEXT', hint='FULL / BACK / FRONT / HALF (2D) etc.'),
+        Column('spline_count', 'INTEGER', hint='len(curve.splines).'),
+    )
+    RELATED: tuple[str, ...] = ('curve_splines', 'curve_points', 'objects')
     schema = (
         'CREATE TABLE curves('
         'name TEXT, '
@@ -43,6 +61,25 @@ class Curves(IteratorVTable):
 
 
 class CurveSplines(IteratorVTable):
+    DESCRIPTION = 'Per-curve splines: type (BEZIER/POLY/NURBS), point count, U-axis settings.'
+    AGENT_HINT = (
+        'Tree level 2 (curves -> curve_splines -> curve_points). Read-only; key is (curve, "index"). '
+        'JOIN curves ON curves.name=curve_splines.curve; JOIN curve_points ON '
+        'curve_points.curve=curve_splines.curve AND curve_points.spline=curve_splines."index". '
+        'point_count uses bezier_points for BEZIER, points otherwise. Quote "index".'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('curve', 'TEXT', pk=True, hint='Owning curves.name.'),
+        Column('index', 'INTEGER', pk=True, hint='0-based spline index within the curve.'),
+        Column(
+            'type', 'TEXT', hint='BEZIER / POLY / NURBS — picks bezier_points vs points domain.'
+        ),
+        Column('point_count', 'INTEGER', hint='len(bezier_points) for BEZIER else len(points).'),
+        Column('use_cyclic_u', 'INTEGER', hint='Boolean as 0/1; closed loop along U.'),
+        Column('resolution_u', 'INTEGER', hint='Tessellation steps along U.'),
+        Column('order_u', 'INTEGER', hint='NURBS order along U (1..6).'),
+    )
+    RELATED: tuple[str, ...] = ('curves', 'curve_points')
     schema = (
         'CREATE TABLE curve_splines('
         'curve TEXT, '
@@ -77,6 +114,31 @@ class CurvePoints(IteratorVTable):
     # point_type discriminates: 'BEZIER' uses bezier_points (with handles),
     # 'POLY'/'NURBS' use points (4D co; weight is .co[3]). handle_left/right
     # are NULL for non-bezier rows.
+    DESCRIPTION = 'Per-spline control points: position, radius/tilt, bezier handles (BEZIER only).'
+    AGENT_HINT = (
+        'Tree level 3 (curves -> curve_splines -> curve_points). Read-only; key is (curve, spline, "index"). '
+        'handle_left_*/handle_right_* are NULL when point_type != BEZIER. JOIN curve_splines ON '
+        'curve_splines.curve=curve_points.curve AND curve_splines."index"=curve_points.spline. Quote "index".'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('curve', 'TEXT', pk=True, hint='Owning curves.name.'),
+        Column('spline', 'INTEGER', pk=True, hint='Owning curve_splines."index" within the curve.'),
+        Column('index', 'INTEGER', pk=True, hint='0-based point index within the spline.'),
+        Column('point_type', 'TEXT', hint='BEZIER / POLY / NURBS — mirror of curve_splines.type.'),
+        Column('x', 'REAL', hint='Control point X (local space).'),
+        Column('y', 'REAL'),
+        Column('z', 'REAL'),
+        Column('radius', 'REAL', hint='Per-point bevel radius factor.'),
+        Column('tilt', 'REAL', hint='Per-point twist in radians.'),
+        Column('weight_softbody', 'REAL', hint='Softbody goal weight.'),
+        Column('handle_left_x', 'REAL', hint='Left bezier handle X; NULL for non-BEZIER.'),
+        Column('handle_left_y', 'REAL'),
+        Column('handle_left_z', 'REAL'),
+        Column('handle_right_x', 'REAL', hint='Right bezier handle X; NULL for non-BEZIER.'),
+        Column('handle_right_y', 'REAL'),
+        Column('handle_right_z', 'REAL'),
+    )
+    RELATED: tuple[str, ...] = ('curve_splines', 'curves')
     schema = (
         'CREATE TABLE curve_points('
         'curve TEXT, '
@@ -152,6 +214,27 @@ class Texts(IteratorVTable):
     # bpy.types.TextCurve subclasses Curve; isinstance check is the canonical
     # way to spot text datablocks (hasattr('body') also works but is less
     # explicit). text_boxes_count includes the implicit first box.
+    DESCRIPTION = 'TextCurve datablocks (3D text): body string, size, alignment, font.'
+    AGENT_HINT = (
+        'Filtered view of bpy.data.curves where the datablock is a TextCurve (3D text objects, NOT '
+        'VSE text strips — those are vse_strip_text — and NOT bpy.data.texts script blocks, which '
+        "this engine doesn't surface). The same datablock also shows up in curves / curve_splines / "
+        'curve_points because TextCurve subclasses Curve. Read-only; mutate via bpy_exec.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', pk=True, hint='Unique within bpy.data.curves (TextCurve subset).'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('body', 'TEXT', hint='The displayed text content.'),
+        Column('size', 'REAL', hint='Font size in local units.'),
+        Column('align_x', 'TEXT', hint='LEFT / CENTER / RIGHT / JUSTIFY / FLUSH.'),
+        Column('align_y', 'TEXT', hint='TOP / TOP_BASELINE / CENTER / BOTTOM / BOTTOM_BASELINE.'),
+        Column('font', 'TEXT', hint='fonts.name of the loaded VectorFont; NULL for the built-in.'),
+        Column('extrude', 'REAL', hint='3D extrude depth.'),
+        Column(
+            'text_boxes_count', 'INTEGER', hint='len(text_boxes); includes the implicit first box.'
+        ),
+    )
+    RELATED: tuple[str, ...] = ('curves', 'fonts', 'objects')
     schema = (
         'CREATE TABLE texts('
         'name TEXT, '
