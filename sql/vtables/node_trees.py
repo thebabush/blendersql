@@ -70,7 +70,6 @@ class NodeTrees(IteratorVTable):
         Column(
             'owner_name',
             'TEXT',
-            pk=True,
             hint='Name of the owning datablock; join key for nodes/links/sockets.',
         ),
         Column('node_count', 'INTEGER', hint='len(tree.nodes).'),

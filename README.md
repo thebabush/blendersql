@@ -86,7 +86,7 @@ Prefer to keep Blender headless? The assistant can also launch Blender in the ba
 
 ## Under the hood
 
-BlenderSQL exposes Blender's data as ~75 live SQL tables plus a set of editing functions, served over a small localhost HTTP endpoint, with a Python escape hatch for anything that isn't a query. If you want the technical picture — architecture, the full table and function reference, the HTTP API, the command-line tool, building from source, contributing — see **[DEVELOPMENT.md](DEVELOPMENT.md)**.
+BlenderSQL exposes Blender's data as ~78 live SQL tables plus a set of editing functions, served over a small localhost HTTP endpoint, with a Python escape hatch for anything that isn't a query. If you want the technical picture — architecture, the full table and function reference, the HTTP API, the command-line tool, building from source, contributing — see **[DEVELOPMENT.md](DEVELOPMENT.md)**.
 
 ## Disclosure
 

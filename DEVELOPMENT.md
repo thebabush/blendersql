@@ -37,7 +37,7 @@ Hard-targeted at **Blender 5.1**. The table schemas track 5.1's `bpy` API — la
 
 ### Tables
 
-75 virtual tables. For the live list: `SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`. For a one-line file summary: `SELECT * FROM welcome`. The headline groups:
+78 virtual tables. For the live list: `SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`. For a one-line file summary: `SELECT * FROM welcome`. The headline groups:
 
 | Area | Tables (selection) |
 |------|--------------------|

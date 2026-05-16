@@ -29,7 +29,7 @@ class BsqlTables(IteratorVTable):
         'with writability + a one-liner. Avoid a describe_table spree by joining hints from here.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', pk=True, hint='Table name as registered in the engine.'),
+        Column('name', 'TEXT', hint='Table name as registered in the engine.'),
         Column('writable', 'INTEGER', hint='Boolean as 0/1; 1 if UPDATE/INSERT/DELETE allowed.'),
         Column('description', 'TEXT', hint='One-line agent-facing summary of the table.'),
         Column('agent_hint', 'TEXT', hint='When to reach for this table; common JOINs; gotchas.'),
@@ -112,8 +112,6 @@ class BsqlColumns(IteratorVTable):
         rows: list[tuple[Any, ...]] = []
         for table_name in sorted(reg):
             inst = reg[table_name]
-            if not inst.COLUMNS:
-                continue
             for col in inst.COLUMNS:
                 rows.append(
                     (

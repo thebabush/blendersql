@@ -15,7 +15,7 @@ class Scenes(IteratorVTable):
         '(scene=scenes.name) to enumerate the flattened object set per scene.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', pk=True, hint='Unique within bpy.data.scenes.'),
+        Column('name', 'TEXT', hint='Unique within bpy.data.scenes.'),
         Column('frame_current', 'INTEGER', hint='Current playhead frame.'),
         Column('frame_start', 'INTEGER', hint='Playback range start.'),
         Column('frame_end', 'INTEGER', hint='Playback range end.'),

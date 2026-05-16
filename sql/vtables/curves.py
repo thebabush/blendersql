@@ -23,7 +23,7 @@ class Curves(IteratorVTable):
         'curve_splines.curve=curves.name to walk geometry.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', pk=True, hint='Unique within bpy.data.curves.'),
+        Column('name', 'TEXT', hint='Unique within bpy.data.curves.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('dimensions', 'TEXT', hint="'2D' or '3D'."),
         Column('bevel_depth', 'REAL', hint='Round-bevel radius along the curve.'),
@@ -69,8 +69,8 @@ class CurveSplines(IteratorVTable):
         'point_count uses bezier_points for BEZIER, points otherwise. Quote "index".'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('curve', 'TEXT', pk=True, hint='Owning curves.name.'),
-        Column('index', 'INTEGER', pk=True, hint='0-based spline index within the curve.'),
+        Column('curve', 'TEXT', hint='Owning curves.name.'),
+        Column('index', 'INTEGER', hint='0-based spline index within the curve.'),
         Column(
             'type', 'TEXT', hint='BEZIER / POLY / NURBS — picks bezier_points vs points domain.'
         ),
@@ -121,9 +121,9 @@ class CurvePoints(IteratorVTable):
         'curve_splines.curve=curve_points.curve AND curve_splines."index"=curve_points.spline. Quote "index".'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('curve', 'TEXT', pk=True, hint='Owning curves.name.'),
-        Column('spline', 'INTEGER', pk=True, hint='Owning curve_splines."index" within the curve.'),
-        Column('index', 'INTEGER', pk=True, hint='0-based point index within the spline.'),
+        Column('curve', 'TEXT', hint='Owning curves.name.'),
+        Column('spline', 'INTEGER', hint='Owning curve_splines."index" within the curve.'),
+        Column('index', 'INTEGER', hint='0-based point index within the spline.'),
         Column('point_type', 'TEXT', hint='BEZIER / POLY / NURBS — mirror of curve_splines.type.'),
         Column('x', 'REAL', hint='Control point X (local space).'),
         Column('y', 'REAL'),
@@ -222,7 +222,7 @@ class Texts(IteratorVTable):
         'curve_points because TextCurve subclasses Curve. Read-only; mutate via bpy_exec.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', pk=True, hint='Unique within bpy.data.curves (TextCurve subset).'),
+        Column('name', 'TEXT', hint='Unique within bpy.data.curves (TextCurve subset).'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('body', 'TEXT', hint='The displayed text content.'),
         Column('size', 'REAL', hint='Font size in local units.'),

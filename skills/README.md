@@ -1,6 +1,6 @@
 # blendersql-skills
 
-Claude Code and Codex plugin packaging for [BlenderSQL](https://github.com/thebabush/blendersql) — a SQL interface to `bpy.data`: ~75 SQLite virtual tables (10 writable) plus 26 SQL functions, served from a running Blender (the GUI add-on's HTTP server, the `blendersql` headless CLI, or `--http` server mode).
+Claude Code and Codex plugin packaging for [BlenderSQL](https://github.com/thebabush/blendersql) — a SQL interface to `bpy.data`: ~78 SQLite virtual tables (12 writable) plus 26 SQL functions, served from a running Blender (the GUI add-on's HTTP server, the `blendersql` headless CLI, or `--http` server mode).
 
 This directory is self-contained — it can be `git subtree`-split into a standalone `blendersql-skills` repo. It is **not** part of the Blender add-on (excluded from the built `.zip` via `blender_manifest.toml`'s `paths_exclude_pattern`).
 

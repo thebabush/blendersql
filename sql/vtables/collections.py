@@ -16,7 +16,7 @@ class Collections(IteratorVTable):
         'scene_objects for the flattened recursive view per scene.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', pk=True, hint='Unique within bpy.data.collections.'),
+        Column('name', 'TEXT', hint='Unique within bpy.data.collections.'),
         Column(
             'parent_collection', 'TEXT', hint='Name of parent collection; NULL for scene roots.'
         ),

@@ -21,14 +21,8 @@ EXPECTED: dict[str, int] = {
     'armatures': 1,
     'bones': 2,
     'brushes': 0,
-    # bsql_columns is the per-column introspection vtable — count == sum of
-    # len(COLUMNS) across every migrated vtable. Bump this every time another
-    # vtable's class-attr metadata lands.
-    'bsql_columns': 710,
-    # bsql_tables is the introspection vtable — count == number of registered
-    # tables (including itself). Keep this in lockstep with the registry; if
-    # you add a new vtable, this count goes up by 1.
-    'bsql_tables': 78,
+    # bsql_tables / bsql_columns counts are asserted dynamically in
+    # tests/test_vtables.py against the live registry — no hardcoded value here.
     'cache_files': 0,
     'cameras': 1,
     'collection_objects': 1,

@@ -30,9 +30,12 @@ class Grep:
     # (`bsql_tables`) treats it like any other registered vtable.
     DESCRIPTION = 'Full-text-ish search across every named bpy datablock.'
     AGENT_HINT = (
-        'Bind ?pattern with LIKE/GLOB on a hidden first column; returns '
-        'matching datablock names plus their kind / parent. Use for ad-hoc '
-        '"find anything named X" queries that span dozens of vtables.'
+        'Bind `pattern` (HIDDEN, the first column in the schema) with LIKE/GLOB '
+        "to filter: `SELECT name, kind FROM grep WHERE pattern LIKE 'GEO-%'`. "
+        "The `pattern` column doesn't appear in bsql_columns because it's HIDDEN — "
+        "that's intentional. Returns matching datablock names plus their kind / "
+        'parent. Use for ad-hoc "find anything named X" queries that span dozens '
+        'of vtables.'
     )
     COLUMNS: tuple[Column, ...] = (
         Column('name', 'TEXT', hint='Matched datablock name.'),

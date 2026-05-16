@@ -22,7 +22,7 @@ class Meshes(IteratorVTable):
         'small fixtures, future BestIndex pushdown candidate for production scenes.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', pk=True, hint='Unique within bpy.data.meshes.'),
+        Column('name', 'TEXT', hint='Unique within bpy.data.meshes.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('vertex_count', 'INTEGER', hint='len(mesh.vertices).'),
         Column('edge_count', 'INTEGER', hint='len(mesh.edges).'),
@@ -82,8 +82,8 @@ class MeshAttributes(IteratorVTable):
         'not materialised here — query the per-domain vtable. Read-only; bpy_exec for writes.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('mesh', 'TEXT', pk=True, hint='Owning mesh datablock name.'),
-        Column('name', 'TEXT', pk=True, hint='Attribute name (includes built-ins like position).'),
+        Column('mesh', 'TEXT', hint='Owning mesh datablock name.'),
+        Column('name', 'TEXT', hint='Attribute name (includes built-ins like position).'),
         Column(
             'domain', 'TEXT', hint='POINT / EDGE / CORNER / FACE — picks the per-element table.'
         ),
@@ -116,8 +116,8 @@ class MeshVertices(IteratorVTable):
         'bpy_exec / bmesh — SQL-level vertex writes are future work.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('mesh', 'TEXT', pk=True, hint='Owning mesh datablock name.'),
-        Column('index', 'INTEGER', pk=True, hint='0-based vertex index within the mesh.'),
+        Column('mesh', 'TEXT', hint='Owning mesh datablock name.'),
+        Column('index', 'INTEGER', hint='0-based vertex index within the mesh.'),
         Column('x', 'REAL', hint='Local-space coordinate.'),
         Column('y', 'REAL', hint='Local-space coordinate.'),
         Column('z', 'REAL', hint='Local-space coordinate.'),
@@ -171,8 +171,8 @@ class MeshEdges(IteratorVTable):
         'are SQL keywords. Mutate via bpy_exec / bmesh.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('mesh', 'TEXT', pk=True, hint='Owning mesh datablock name.'),
-        Column('index', 'INTEGER', pk=True, hint='0-based edge index within the mesh.'),
+        Column('mesh', 'TEXT', hint='Owning mesh datablock name.'),
+        Column('index', 'INTEGER', hint='0-based edge index within the mesh.'),
         Column('v1', 'INTEGER', hint='First endpoint vertex index (mesh_vertices."index").'),
         Column('v2', 'INTEGER', hint='Second endpoint vertex index.'),
         Column('use_seam', 'INTEGER', hint='Boolean as 0/1; UV seam marker.'),
@@ -227,8 +227,8 @@ class MeshPolygons(IteratorVTable):
         'Mutate via bpy_exec / bmesh — SQL writes here would need a careful design.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('mesh', 'TEXT', pk=True, hint='Owning mesh datablock name.'),
-        Column('index', 'INTEGER', pk=True, hint='0-based polygon index within the mesh.'),
+        Column('mesh', 'TEXT', hint='Owning mesh datablock name.'),
+        Column('index', 'INTEGER', hint='0-based polygon index within the mesh.'),
         Column('material_index', 'INTEGER', hint='Slot index into object.material_slots.'),
         Column('vertex_count', 'INTEGER', hint='Number of corners (loop_total).'),
         Column('area', 'REAL', hint='Face area in object-local units.'),
@@ -296,8 +296,8 @@ class MeshLoops(IteratorVTable):
         'Quote "index".'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('mesh', 'TEXT', pk=True, hint='Owning mesh datablock name.'),
-        Column('index', 'INTEGER', pk=True, hint='0-based loop index within the mesh.'),
+        Column('mesh', 'TEXT', hint='Owning mesh datablock name.'),
+        Column('index', 'INTEGER', hint='0-based loop index within the mesh.'),
         Column('vertex_index', 'INTEGER', hint='mesh_vertices."index" this corner refers to.'),
         Column('edge_index', 'INTEGER', hint='mesh_edges."index" outgoing from this corner.'),
         Column('normal_x', 'REAL', hint='Per-corner (split) normal X.'),
@@ -342,9 +342,9 @@ class MeshUvs(IteratorVTable):
         'to map a UV back to its vertex/edge; a mesh with no uv_layers yields zero rows. Mutate via bpy_exec.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('mesh', 'TEXT', pk=True, hint='Owning mesh datablock name.'),
-        Column('layer', 'TEXT', pk=True, hint='UV layer name (mesh.uv_layers[*].name).'),
-        Column('loop_index', 'INTEGER', pk=True, hint='mesh_loops."index" this UV belongs to.'),
+        Column('mesh', 'TEXT', hint='Owning mesh datablock name.'),
+        Column('layer', 'TEXT', hint='UV layer name (mesh.uv_layers[*].name).'),
+        Column('loop_index', 'INTEGER', hint='mesh_loops."index" this UV belongs to.'),
         Column('u', 'REAL', hint='U coordinate.'),
         Column('v', 'REAL', hint='V coordinate.'),
     )

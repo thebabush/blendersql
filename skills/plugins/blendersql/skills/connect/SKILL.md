@@ -8,7 +8,7 @@ allowed-tools:
   - Grep
 ---
 
-BlenderSQL exposes `bpy.data` as ~75 SQLite virtual tables (10 writable) plus 26 SQL functions, served from a running Blender. This skill is the front door: connect, orient, then route.
+BlenderSQL exposes `bpy.data` as ~78 SQLite virtual tables (12 writable) plus 26 SQL functions, served from a running Blender. This skill is the front door: connect, orient, then route.
 
 ---
 
@@ -69,6 +69,25 @@ Guardrails:
 
 ---
 
+## Self-Describing Introspection (`bsql_tables` / `bsql_columns`)
+
+Two vtables describe the rest of the surface so you don't have to `PRAGMA table_info` your way around it:
+
+- **`bsql_tables`** — one row per registered vtable: `name, writable, description, agent_hint, column_count, related`. The orienting query.
+- **`bsql_columns`** — one row per declared column across every vtable: `"table", name, type, writable, pk, hint`. Filter with `WHERE "table"=?` — `table` is a SQL keyword so it must stay quoted.
+
+```sql
+-- Bootstrap query — read this before reaching for sqlite_master:
+SELECT name, writable, description FROM bsql_tables ORDER BY name;
+
+-- Zoom into a table's columns + writability + hints:
+SELECT name, type, writable, pk, hint FROM bsql_columns WHERE "table"='objects';
+```
+
+These subsume most needs that `PRAGMA table_info` previously covered — and add agent-facing `description` / `agent_hint` / `pk` / `writable` that PRAGMA can't surface.
+
+---
+
 ## Session Bootstrap Contract
 
 1. Connect (`-q`, `-i`, `--http`, or the GUI add-on).
@@ -77,14 +96,13 @@ Guardrails:
    SELECT * FROM welcome;
    ```
    `welcome` is a one-row table: `blender_version, filepath, is_dirty, active_scene, scene_count, object_count, collection_count, material_count, mesh_count, grease_pencil_count, action_count, image_count, sound_count`. This is the closest thing to a `blend_info` table.
-3. List the surfaces:
+3. List the surfaces (prefer `bsql_tables` — it carries descriptions + writability):
    ```sql
-   SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;
+   SELECT name, writable, description FROM bsql_tables ORDER BY name;
    ```
 4. Introspect a table before authoring complex SQL — column names are not always obvious:
    ```sql
-   SELECT sql FROM sqlite_master WHERE name='objects';   -- registration line
-   PRAGMA table_info(objects);                            -- columns + types
+   SELECT name, type, writable, pk, hint FROM bsql_columns WHERE "table"='objects';
    ```
 5. Route with the matrix below.
 

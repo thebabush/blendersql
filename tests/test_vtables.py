@@ -1,7 +1,9 @@
 """Smoke tests for every registered virtual table.
 
-Parametrized over EXPECTED (the canonical static list of 75 tables). A
-separate guard test asserts the live `sqlite_master` view matches that list
+Parametrized over EXPECTED (the canonical static row-count fixture; 76 tables
+today, bsql_tables/bsql_columns excluded because their counts are asserted
+dynamically below). A separate guard test combines EXPECTED with the two
+introspection tables and asserts the union exactly matches `sqlite_master`,
 so the two never drift silently.
 """
 
@@ -16,21 +18,28 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from fixtures.expected import EXPECTED
 
+# bsql_tables / bsql_columns are excluded from EXPECTED because their counts
+# track the live registry — covered by dedicated dynamic tests below. Keep
+# them in the inventory's expected set so drift is still detected here.
+_INTROSPECTION_TABLES: frozenset[str] = frozenset({'bsql_tables', 'bsql_columns'})
+
 ALL_TABLES: list[str] = sorted(EXPECTED.keys())
+ALL_REGISTERED_TABLES: list[str] = sorted(set(EXPECTED.keys()) | _INTROSPECTION_TABLES)
 
 
 def test_table_inventory_matches_expected(client) -> None:
     r = client.query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
     assert r['ok'], r
     live = [row[0] for row in r['rows']]
-    missing = sorted(set(ALL_TABLES) - set(live))
-    extra = sorted(set(live) - set(ALL_TABLES))
+    expected_set = set(ALL_REGISTERED_TABLES)
+    missing = sorted(expected_set - set(live))
+    extra = sorted(set(live) - expected_set)
     assert not missing and not extra, (
         f'sqlite_master drift: missing in live={missing}, extra in live={extra}'
     )
 
 
-@pytest.mark.parametrize('table', ALL_TABLES)
+@pytest.mark.parametrize('table', ALL_REGISTERED_TABLES)
 def test_table_queryable(client, table: str) -> None:
     r = client.query(f'SELECT * FROM {table} LIMIT 1')
     assert r['ok'], f'{table} failed: {r}'
@@ -166,14 +175,20 @@ def test_bsql_tables_writability_matches_class_hierarchy(client) -> None:
 
 
 def test_every_bsql_table_has_metadata(client) -> None:
-    # Phase-1 regression guard: every registered table must declare both a
-    # non-empty description and at least one column. If a future vtable lands
-    # without filling in the class-attr metadata it surfaces here.
+    # Phase-1 regression guard: description must be a real one-liner (>= 10
+    # chars after trim — catches 'TODO', single tokens, whitespace), agent_hint
+    # must say something (>= 20 chars), and the table must declare columns. If
+    # a future vtable lands without filling these in, this surfaces here —
+    # don't loosen the test; fix the class's metadata.
     r = client.query(
-        "SELECT name FROM bsql_tables WHERE description='' OR column_count=0 ORDER BY name"
+        'SELECT name, description, agent_hint, column_count FROM bsql_tables '
+        'WHERE LENGTH(TRIM(description)) < 10 '
+        'OR LENGTH(TRIM(agent_hint)) < 20 '
+        'OR column_count=0 '
+        'ORDER BY name'
     )
     assert r['ok'], r
-    assert r['rows'] == [], f'tables without metadata: {[row[0] for row in r["rows"]]}'
+    assert r['rows'] == [], f'tables with weak/missing metadata: {r["rows"]}'
 
 
 # ---------------------------------------------------------------------------
@@ -239,3 +254,92 @@ def test_bsql_columns_covers_every_registered_table(client) -> None:
         f'missing from bsql_columns: {registered - in_columns}; '
         f'unexpected in bsql_columns: {in_columns - registered}'
     )
+
+
+def test_bsql_tables_count_matches_registry(client) -> None:
+    # bsql_tables surfaces every registered vtable (including itself); the row
+    # count must match sqlite_master. No hand-maintained number.
+    expected = client.query("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
+    actual = client.query('SELECT COUNT(*) FROM bsql_tables')
+    assert expected['ok'] and actual['ok'], (expected, actual)
+    assert actual['rows'][0][0] == expected['rows'][0][0], (expected, actual)
+
+
+def test_bsql_columns_count_matches_sum_of_metadata(client) -> None:
+    # SUM(column_count) FROM bsql_tables must equal COUNT(*) FROM bsql_columns —
+    # internally consistent without anchoring to a hardcoded total.
+    a = client.query('SELECT SUM(column_count) FROM bsql_tables')
+    b = client.query('SELECT COUNT(*) FROM bsql_columns')
+    assert a['ok'] and b['ok'], (a, b)
+    assert a['rows'][0][0] == b['rows'][0][0], (a, b)
+
+
+# Tables whose `schema` declares HIDDEN columns that intentionally don't appear
+# in `COLUMNS` metadata. Today: grep's `pattern` is a HIDDEN bind column that
+# drives the search; it's exposed in the schema for the apsw module protocol
+# but doesn't fit the "user-visible column" mental model COLUMNS describes.
+_SCHEMA_HIDDEN_EXCEPTIONS: dict[str, frozenset[str]] = {
+    'grep': frozenset({'pattern'}),
+}
+
+
+# Writable vtables (WRITABLE=1) that legitimately expose zero writable columns.
+# Today only gp_strokes is in this set — it's DELETE-only (INSERT/UPDATE both
+# raise; use gp_add_stroke or bpy_exec for inserts). If a new table joins this
+# allowlist, document the write surface in its AGENT_HINT and add it here.
+_DELETE_ONLY_TABLES: frozenset[str] = frozenset({'gp_strokes'})
+
+
+def test_pk_implies_writable_table(client) -> None:
+    # Column.pk means "stable identifier for writes" (see _meta.py). It only
+    # makes sense on writable vtables. If pk=1 appears on a read-only table
+    # the conventions have drifted — fix the class, don't loosen the test.
+    r = client.query(
+        'SELECT c."table", c.name FROM bsql_columns c '
+        'JOIN bsql_tables t ON t.name=c."table" '
+        'WHERE c.pk=1 AND t.writable=0 '
+        'ORDER BY c."table", c.name'
+    )
+    assert r['ok'], r
+    assert r['rows'] == [], f'pk=True on read-only tables: {r["rows"]}'
+
+
+def test_every_writable_table_has_writable_columns(client) -> None:
+    r = client.query(
+        'SELECT t.name, COUNT(c.name) FROM bsql_tables t '
+        'LEFT JOIN bsql_columns c ON c."table"=t.name AND c.writable=1 '
+        'WHERE t.writable=1 '
+        'GROUP BY t.name '
+        'HAVING COUNT(c.name) = 0 '
+        'ORDER BY t.name'
+    )
+    assert r['ok'], r
+    bad = [row[0] for row in r['rows']]
+    unexpected = sorted(set(bad) - _DELETE_ONLY_TABLES)
+    assert not unexpected, f'writable tables without writable columns: {unexpected}'
+
+
+def test_columns_match_schema(client) -> None:
+    # Every registered vtable's PRAGMA table_info must agree with its bsql_columns
+    # metadata, modulo the documented HIDDEN-column allowlist above. Drift here
+    # means the class's COLUMNS tuple lost sync with its `schema` CREATE TABLE.
+    r = client.query('SELECT name FROM bsql_tables ORDER BY name')
+    assert r['ok'], r
+    for (table,) in r['rows']:
+        # `table` comes from our own registry — safe to interpolate.
+        assert table.replace('_', '').isalnum(), f'unsafe table name: {table!r}'
+        pragma = client.query(f'PRAGMA table_info({table})')
+        assert pragma['ok'], f'{table}: {pragma}'
+        pragma_cols = {row[1] for row in pragma['rows']}
+        meta = client.query(f'SELECT name FROM bsql_columns WHERE "table"=\'{table}\'')
+        assert meta['ok'], f'{table}: {meta}'
+        meta_cols = {row[0] for row in meta['rows']}
+        allowed_extra = _SCHEMA_HIDDEN_EXCEPTIONS.get(table, frozenset())
+        in_schema_not_meta = pragma_cols - meta_cols - allowed_extra
+        in_meta_not_schema = meta_cols - pragma_cols
+        assert not in_schema_not_meta, (
+            f'{table}: in schema but missing from COLUMNS: {sorted(in_schema_not_meta)}'
+        )
+        assert not in_meta_not_schema, (
+            f'{table}: in COLUMNS but missing from schema: {sorted(in_meta_not_schema)}'
+        )
