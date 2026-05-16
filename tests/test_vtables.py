@@ -276,6 +276,13 @@ def test_bsql_columns_covers_all_migrated_tables(client) -> None:
         'gp_points',
         'gp_drawing_attributes',
         'material_gp_settings',
+        'vse_strips',
+        'vse_strip_sound',
+        'vse_strip_movie',
+        'vse_strip_image',
+        'vse_strip_scene',
+        'vse_strip_text',
+        'vse_strip_color',
     }
     assert expected_migrated.issubset(tables), (
         f'missing from bsql_columns: {expected_migrated - tables}'
