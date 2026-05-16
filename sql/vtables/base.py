@@ -160,12 +160,18 @@ class _WritableVTable:
 
     def UpdateInsertRow(self, rowid: int | None, fields: tuple[Any, ...]) -> int:
         ident = self._source._apply_insert(fields)
+        # apsw's contract: return the new rowid; subsequent ops on this row in
+        # the same cursor look it up via `_identifiers[rowid]` (see
+        # UpdateChangeRow / UpdateDeleteRow). Append first, then return the
+        # index of the just-appended entry. Previously this returned
+        # `len(_identifiers)` *without* appending — one past the end.
+        self._identifiers.append(ident)
         import bpy
 
         bpy.ops.ed.undo_push(
             message=f'blendersql: insert {self._source.table_name} ({self._source._describe_identifier(ident)})'
         )
-        return len(self._identifiers)
+        return len(self._identifiers) - 1
 
     def UpdateDeleteRow(self, rowid: int) -> None:
         ident = self._identifiers[rowid]

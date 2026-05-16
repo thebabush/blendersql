@@ -18,10 +18,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from fixtures.expected import EXPECTED
 
-# bsql_tables / bsql_columns are excluded from EXPECTED because their counts
-# track the live registry — covered by dedicated dynamic tests below. Keep
-# them in the inventory's expected set so drift is still detected here.
-_INTROSPECTION_TABLES: frozenset[str] = frozenset({'bsql_tables', 'bsql_columns'})
+# bsql_tables / bsql_columns / bsql_related are excluded from EXPECTED because
+# their counts track the live registry — covered by dedicated dynamic tests
+# below. Keep them in the inventory's expected set so drift is still detected
+# here.
+_INTROSPECTION_TABLES: frozenset[str] = frozenset({'bsql_tables', 'bsql_columns', 'bsql_related'})
 
 ALL_TABLES: list[str] = sorted(EXPECTED.keys())
 ALL_REGISTERED_TABLES: list[str] = sorted(set(EXPECTED.keys()) | _INTROSPECTION_TABLES)
@@ -129,6 +130,46 @@ def test_bsql_tables_columns(client) -> None:
     assert cols == ['name', 'writable', 'description', 'agent_hint', 'column_count', 'related']
 
 
+def test_bsql_tables_snapshot_is_cached(client) -> None:
+    # G4 regression: repeated `snapshot()` calls on the same BsqlTables /
+    # BsqlColumns instance must return the cached list (same object identity)
+    # while registry_version() is unchanged. Driven inside Blender via
+    # bpy_exec because the cache lives on the live vtable instance owned by
+    # the engine's apsw connection, not in the pytest process.
+    import json
+
+    code = (
+        # The extension package path inside Blender is namespaced — pull the
+        # modules by suffix so the test is robust to bl_ext layout changes.
+        'import sys\n'
+        'bsql = next(m for n, m in sys.modules.items() if n.endswith(".sql.vtables.bsql"))\n'
+        'vtables = next(m for n, m in sys.modules.items() if n.endswith(".sql.vtables") and not n.endswith(".sql.vtables.bsql"))\n'
+        '\n'
+        'v_before = vtables.registry_version()\n'
+        't = bsql.BsqlTables()\n'
+        'c = bsql.BsqlColumns()\n'
+        't1 = t.snapshot(); t2 = t.snapshot()\n'
+        'c1 = c.snapshot(); c2 = c.snapshot()\n'
+        'result = {\n'
+        '    "tables_same": t1 is t2,\n'
+        '    "columns_same": c1 is c2,\n'
+        '    "version_stable": vtables.registry_version() == v_before,\n'
+        '    "tables_len": len(t1),\n'
+        '    "columns_len": len(c1),\n'
+        '}\n'
+    )
+    r = client.query(f"SELECT bpy_exec('{code}')")
+    assert r['ok'], r
+    payload = json.loads(r['rows'][0][0])
+    assert payload.get('error') is None, payload
+    res = payload['result']
+    assert res['tables_same'], res
+    assert res['columns_same'], res
+    assert res['version_stable'], res
+    assert res['tables_len'] > 0
+    assert res['columns_len'] > 0
+
+
 def test_bsql_tables_lists_every_registered_table(client) -> None:
     # bsql_tables should mirror sqlite_master's table list exactly.
     a = client.query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -199,7 +240,16 @@ def test_bsql_columns_schema(client) -> None:
     r = client.query('PRAGMA table_info(bsql_columns)')
     assert r['ok'], r
     cols = [row[1] for row in r['rows']]
-    assert cols == ['table', 'name', 'type', 'writable', 'pk', 'hint']
+    assert cols == [
+        'table',
+        'name',
+        'type',
+        'writable',
+        'pk',
+        'identifier',
+        'insert_only',
+        'hint',
+    ]
 
 
 def test_bsql_columns_lists_objects_columns(client) -> None:
@@ -265,6 +315,53 @@ def test_bsql_tables_count_matches_registry(client) -> None:
     assert actual['rows'][0][0] == expected['rows'][0][0], (expected, actual)
 
 
+# ---------------------------------------------------------------------------
+# bsql_related — long-form (a, b) RELATED edges with symmetry guards
+
+
+def test_bsql_related_schema(client) -> None:
+    r = client.query('PRAGMA table_info(bsql_related)')
+    assert r['ok'], r
+    cols = [row[1] for row in r['rows']]
+    assert cols == ['a', 'b']
+
+
+def test_bsql_related_matches_bsql_tables_related(client) -> None:
+    # The long form must exactly enumerate bsql_tables.related (comma-joined).
+    long_form = client.query('SELECT a, b FROM bsql_related ORDER BY a, b')
+    short_form = client.query('SELECT name, related FROM bsql_tables ORDER BY name')
+    assert long_form['ok'] and short_form['ok'], (long_form, short_form)
+    expected_pairs: set[tuple[str, str]] = set()
+    for name, related in short_form['rows']:
+        if not related:
+            continue
+        for other in related.split(','):
+            expected_pairs.add((name, other))
+    got_pairs = {(a, b) for a, b in long_form['rows']}
+    assert expected_pairs == got_pairs, (
+        f'missing in long form: {sorted(expected_pairs - got_pairs)}; '
+        f'extra in long form: {sorted(got_pairs - expected_pairs)}'
+    )
+
+
+def test_related_is_symmetric(client) -> None:
+    # Every (a, b) edge must have its (b, a) reverse. New RELATED entries must
+    # come in pairs.
+    r = client.query('SELECT a, b FROM bsql_related')
+    assert r['ok'], r
+    pairs = {(row[0], row[1]) for row in r['rows']}
+    asym = sorted({(a, b) for (a, b) in pairs if (b, a) not in pairs})
+    assert not asym, f'asymmetric RELATED pairs: {asym}'
+
+
+def test_related_has_no_self_loops(client) -> None:
+    # A class listing itself in RELATED is almost certainly a typo.
+    r = client.query('SELECT a FROM bsql_related WHERE a=b')
+    assert r['ok'], r
+    self_loops = sorted({row[0] for row in r['rows']})
+    assert not self_loops, f'self-referential RELATED entries: {self_loops}'
+
+
 def test_bsql_columns_count_matches_sum_of_metadata(client) -> None:
     # SUM(column_count) FROM bsql_tables must equal COUNT(*) FROM bsql_columns —
     # internally consistent without anchoring to a hardcoded total.
@@ -304,10 +401,54 @@ def test_pk_implies_writable_table(client) -> None:
     assert r['rows'] == [], f'pk=True on read-only tables: {r["rows"]}'
 
 
-def test_every_writable_table_has_writable_columns(client) -> None:
+def test_pk_implies_identifier(client) -> None:
+    # Every write-side identifier (pk=1) must also be marked as part of the
+    # natural identifier (identifier=1). identifier is the superset; pk is the
+    # writable-side subset.
+    r = client.query(
+        'SELECT "table", name FROM bsql_columns WHERE pk=1 AND identifier=0 ORDER BY "table", name'
+    )
+    assert r['ok'], r
+    assert r['rows'] == [], f'pk=True without identifier=True: {r["rows"]}'
+
+
+def test_writable_table_has_identifier(client) -> None:
+    # Every writable vtable must declare at least one identifier column so
+    # agents can reach a row deterministically without scanning. Cross-checked
+    # against bsql_columns.identifier.
     r = client.query(
         'SELECT t.name, COUNT(c.name) FROM bsql_tables t '
-        'LEFT JOIN bsql_columns c ON c."table"=t.name AND c.writable=1 '
+        'LEFT JOIN bsql_columns c ON c."table"=t.name AND c.identifier=1 '
+        'WHERE t.writable=1 '
+        'GROUP BY t.name '
+        'HAVING COUNT(c.name) = 0 '
+        'ORDER BY t.name'
+    )
+    assert r['ok'], r
+    bad = [row[0] for row in r['rows']]
+    assert not bad, f'writable tables without identifier columns: {bad}'
+
+
+def test_insert_only_on_writable_table(client) -> None:
+    # insert_only is a write-side property; it has no meaning on read-only
+    # tables (UPDATE doesn't run there to begin with).
+    r = client.query(
+        'SELECT c."table", c.name FROM bsql_columns c '
+        'JOIN bsql_tables t ON t.name=c."table" '
+        'WHERE c.insert_only=1 AND t.writable=0 '
+        'ORDER BY c."table", c.name'
+    )
+    assert r['ok'], r
+    assert r['rows'] == [], f'insert_only=True on read-only tables: {r["rows"]}'
+
+
+def test_every_writable_table_has_writable_columns(client) -> None:
+    # "Writable" here counts UPDATE-writable OR insert_only — insert_only
+    # columns are still a legitimate write surface, just not on UPDATE.
+    r = client.query(
+        'SELECT t.name, COUNT(c.name) FROM bsql_tables t '
+        'LEFT JOIN bsql_columns c ON c."table"=t.name '
+        'AND (c.writable=1 OR c.insert_only=1) '
         'WHERE t.writable=1 '
         'GROUP BY t.name '
         'HAVING COUNT(c.name) = 0 '

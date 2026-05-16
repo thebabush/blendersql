@@ -28,8 +28,16 @@ class Column:
     Attributes:
         name: SQL column name.
         type: SQLite affinity — 'TEXT' / 'REAL' / 'INTEGER' / 'BLOB' / 'ANY'.
-        writable: True when UPDATE/INSERT may write this column.
+        writable: True when UPDATE may write this column. INSERT-only columns
+            (see `insert_only`) deliberately leave this False.
         pk: True when this column functions as a stable identifier in writes.
+            Implies `identifier=True`; only meaningful on writable tables.
+        identifier: True when this column is part of the natural row-key tuple
+            of its table. Set on both read-only and writable tables — pk is the
+            writable-side subset.
+        insert_only: True when the column accepts a value on INSERT but rejects
+            UPDATE changes (datablock-restructure cases). Implies writable=False
+            on UPDATE — keep `writable=False` and set `insert_only=True`.
         hint: One-line agent-facing description.
     """
 
@@ -37,6 +45,8 @@ class Column:
     type: str
     writable: bool = False
     pk: bool = False
+    identifier: bool = False
+    insert_only: bool = False
     hint: str = ''
 
 

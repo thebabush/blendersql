@@ -25,7 +25,10 @@ class ShapeKeys(IteratorVTable):
     )
     COLUMNS: tuple[Column, ...] = (
         Column(
-            'name', 'TEXT', hint='Unique within bpy.data.shape_keys (usually "Key", "Key.001"...).'
+            'name',
+            'TEXT',
+            identifier=True,
+            hint='Unique within bpy.data.shape_keys (usually "Key", "Key.001"...).',
         ),
         Column('users', 'INTEGER', hint='Refcount; typically 1 (the owning ID).'),
         Column('owner_type', 'TEXT', hint="Owning ID class name: 'Mesh' / 'Curve' / 'Lattice'."),
@@ -77,8 +80,18 @@ class ShapeKeyBlocks(IteratorVTable):
         'by-name on the owning object (JOIN vertex_groups ON vertex_groups.name=shape_key_blocks.vertex_group).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('shape_keys', 'TEXT', hint='Owning shape_keys.name; part of identity.'),
-        Column('name', 'TEXT', hint='Block name; unique within the Key (e.g. "Basis", "Smile").'),
+        Column(
+            'shape_keys',
+            'TEXT',
+            identifier=True,
+            hint='Owning shape_keys.name; part of identity.',
+        ),
+        Column(
+            'name',
+            'TEXT',
+            identifier=True,
+            hint='Block name; unique within the Key (e.g. "Basis", "Smile").',
+        ),
         Column('value', 'REAL', hint='Active blend value, typically in [slider_min, slider_max].'),
         Column('slider_min', 'REAL', hint='UI slider minimum (defaults to 0).'),
         Column('slider_max', 'REAL', hint='UI slider maximum (defaults to 1).'),

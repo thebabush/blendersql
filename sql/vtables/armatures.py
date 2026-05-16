@@ -16,7 +16,7 @@ class Armatures(IteratorVTable):
         'objects (multiple objects can share one armature datablock); JOIN bones ON bones.armature=armatures.name.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.armatures.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.armatures.'),
         Column(
             'users', 'INTEGER', hint='Refcount across the file (objects sharing this armature).'
         ),
@@ -46,8 +46,10 @@ class Bones(IteratorVTable):
         'pose_bones.name=bones.name within an armature object (pose_bones is per-object, not per-data).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('armature', 'TEXT', hint='Owning armatures.name; part of identity.'),
-        Column('name', 'TEXT', hint='Bone name; unique within the armature.'),
+        Column(
+            'armature', 'TEXT', identifier=True, hint='Owning armatures.name; part of identity.'
+        ),
+        Column('name', 'TEXT', identifier=True, hint='Bone name; unique within the armature.'),
         Column('parent', 'TEXT', hint='Parent bone name; NULL for root bones.'),
         Column('use_deform', 'INTEGER', hint='Boolean as 0/1; bone deforms geometry.'),
         Column('use_connect', 'INTEGER', hint='Boolean as 0/1; head locked to parent tail.'),
@@ -110,8 +112,15 @@ class PoseBones(IteratorVTable):
         "ON constraints.owner_type='POSE_BONE' AND constraints.owner_name=pose_bones.object||'/'||pose_bones.name."
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('object', 'TEXT', hint='Owning armature object name (objects.name).'),
-        Column('name', 'TEXT', hint='Pose-bone name (matches the rest-pose bones.name).'),
+        Column(
+            'object', 'TEXT', identifier=True, hint='Owning armature object name (objects.name).'
+        ),
+        Column(
+            'name',
+            'TEXT',
+            identifier=True,
+            hint='Pose-bone name (matches the rest-pose bones.name).',
+        ),
         Column('location_x', 'REAL', hint='Pose-space location offset X relative to rest.'),
         Column('location_y', 'REAL', hint='Pose-space location offset Y relative to rest.'),
         Column('location_z', 'REAL', hint='Pose-space location offset Z relative to rest.'),

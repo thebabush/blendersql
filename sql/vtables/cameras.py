@@ -60,7 +60,7 @@ class Cameras(IteratorVTable):
         'Panorama / shift / background-image fields live in params_json.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.cameras.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.cameras.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('type', 'TEXT', hint='PERSP / ORTHO / PANO.'),
         Column('lens', 'REAL', hint='Focal length in mm (perspective).'),
@@ -77,7 +77,9 @@ class Cameras(IteratorVTable):
             hint='JSON object of type-specific bl_rna props (panorama_type, shift_*, fisheye_*).',
         ),
     )
-    RELATED: tuple[str, ...] = ('objects', 'scenes')
+    # scenes.camera is an object name, not a camera name — the camera<->scene
+    # join is two-hop via objects, so skip listing scenes here.
+    RELATED: tuple[str, ...] = ('objects',)
     schema = (
         'CREATE TABLE cameras('
         'name TEXT, '

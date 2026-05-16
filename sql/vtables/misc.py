@@ -18,7 +18,7 @@ class Palettes(IteratorVTable):
         'palette_colors.palette=palettes.name to drill in. Mutate via bpy_exec.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.palettes.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.palettes.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('color_count', 'INTEGER', hint='len(palette.colors).'),
     )
@@ -38,8 +38,13 @@ class PaletteColors(IteratorVTable):
         'GP tools respectively. Mutate via bpy_exec.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('palette', 'TEXT', hint='Owning palettes.name; part of identity.'),
-        Column('idx', 'INTEGER', hint='0-based index within the palette (order matters).'),
+        Column('palette', 'TEXT', identifier=True, hint='Owning palettes.name; part of identity.'),
+        Column(
+            'idx',
+            'INTEGER',
+            identifier=True,
+            hint='0-based index within the palette (order matters).',
+        ),
         Column('r', 'REAL', hint='Color red channel (0..1).'),
         Column('g', 'REAL'),
         Column('b', 'REAL'),
@@ -85,7 +90,7 @@ class LineStyles(IteratorVTable):
         'use_nodes=1 the stroke shader lives in node_trees (owner_type=linestyle).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.linestyles.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.linestyles.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('color_r', 'REAL', hint='Base stroke color red channel.'),
         Column('color_g', 'REAL'),
@@ -97,7 +102,10 @@ class LineStyles(IteratorVTable):
         Column('use_nodes', 'INTEGER', hint='Boolean as 0/1; surface a node_trees row.'),
         Column('chain_count', 'INTEGER', hint='Number of strokes to chain (sketchy mode).'),
     )
-    RELATED: tuple[str, ...] = ('scenes', 'node_trees')
+    # Scene linkage is via scene.view_layers[*].freestyle_settings.linesets
+    # (not surfaced as SQL today), so the linestyles<->scenes join is implicit
+    # and not worth carrying here.
+    RELATED: tuple[str, ...] = ('node_trees',)
     schema = (
         'CREATE TABLE linestyles('
         'name TEXT, '
@@ -141,7 +149,7 @@ class Worlds(IteratorVTable):
         "(JOIN node_trees ON node_trees.owner_type='world' AND node_trees.owner_name=worlds.name)."
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.worlds.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.worlds.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('use_nodes', 'INTEGER', hint='Boolean as 0/1; toggles shader node tree.'),
         Column('color_r', 'REAL'),
@@ -225,7 +233,7 @@ class Brushes(IteratorVTable):
         'mode-specific extras not promoted to top-level columns. Mutate via bpy_exec.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.brushes.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.brushes.'),
         Column(
             'users',
             'INTEGER',
@@ -301,13 +309,16 @@ class Masks(IteratorVTable):
         'splines / points hierarchy is not surfaced here — mutate via bpy_exec.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.masks.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.masks.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('frame_start', 'INTEGER', hint='Playback range start frame.'),
         Column('frame_end', 'INTEGER', hint='Playback range end frame.'),
         Column('layer_count', 'INTEGER', hint='len(mask.layers).'),
     )
-    RELATED: tuple[str, ...] = ('vse_strip_movie', 'vse_strip_image')
+    # No SQL surface links masks to specific VSE strips today (mask strips
+    # aren't broken out into their own vtable, and movie/image strips don't
+    # reference masks). Drop the speculative edges.
+    RELATED: tuple[str, ...] = ()
     schema = (
         'CREATE TABLE masks('
         'name TEXT, '
@@ -343,7 +354,7 @@ class Annotations(IteratorVTable):
         'Frames/strokes/points hierarchy is intentionally not surfaced in 5.1 — mutate via bpy_exec.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.annotations.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.annotations.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
     )
     RELATED: tuple[str, ...] = ()

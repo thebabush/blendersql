@@ -41,8 +41,13 @@ class VseStrips(IteratorVTable):
         'mutate via bpy_exec.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('scene', 'TEXT', hint='Owning scenes.name.'),
-        Column('name', 'TEXT', hint='Strip name; unique within a scene.sequence_editor.'),
+        Column('scene', 'TEXT', identifier=True, hint='Owning scenes.name.'),
+        Column(
+            'name',
+            'TEXT',
+            identifier=True,
+            hint='Strip name; unique within a scene.sequence_editor.',
+        ),
         Column('type', 'TEXT', hint='SOUND / MOVIE / IMAGE / SCENE / TEXT / COLOR / META / ...'),
         Column('channel', 'INTEGER', hint='Sequencer channel (1-based row).'),
         Column('frame_start', 'REAL', hint='Strip start in scene frames.'),
@@ -119,8 +124,8 @@ class VseStripSound(IteratorVTable):
         'JOIN sounds ON sounds.name=vse_strip_sound.sound to reach the audio datablock. Read-only.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('scene', 'TEXT', hint='Owning scenes.name.'),
-        Column('strip', 'TEXT', hint='Owning vse_strips.name.'),
+        Column('scene', 'TEXT', identifier=True, hint='Owning scenes.name.'),
+        Column('strip', 'TEXT', identifier=True, hint='Owning vse_strips.name.'),
         Column('sound', 'TEXT', hint='Bound sounds.name; NULL when unlinked.'),
         Column('volume', 'REAL', hint='Playback volume multiplier.'),
         Column('pan', 'REAL', hint='Stereo pan in [-2,2].'),
@@ -167,8 +172,8 @@ class VseStripMovie(IteratorVTable):
         'filepath references an on-disk file (movie strips have no datablock binding). Read-only.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('scene', 'TEXT', hint='Owning scenes.name.'),
-        Column('strip', 'TEXT', hint='Owning vse_strips.name.'),
+        Column('scene', 'TEXT', identifier=True, hint='Owning scenes.name.'),
+        Column('strip', 'TEXT', identifier=True, hint='Owning vse_strips.name.'),
         Column('filepath', 'TEXT', hint='Absolute or // -relative source path.'),
         Column('stream_index', 'INTEGER', hint='Video stream index inside the container.'),
         Column('fps', 'REAL', hint='Source frames-per-second as reported by the container.'),
@@ -209,8 +214,8 @@ class VseStripImage(IteratorVTable):
         'strip.elements list, not surfaced here). Read-only.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('scene', 'TEXT', hint='Owning scenes.name.'),
-        Column('strip', 'TEXT', hint='Owning vse_strips.name.'),
+        Column('scene', 'TEXT', identifier=True, hint='Owning scenes.name.'),
+        Column('strip', 'TEXT', identifier=True, hint='Owning vse_strips.name.'),
         Column('directory', 'TEXT', hint='Directory containing the image sequence frames.'),
         Column('frame_offset_start', 'REAL', hint='Left trim into the source (frames).'),
         Column(
@@ -257,8 +262,13 @@ class VseStripScene(IteratorVTable):
         'JOIN scenes ON scenes.name=vse_strip_scene.source_scene. Read-only.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('scene', 'TEXT', hint='Owning sequencer scenes.name (where the strip lives).'),
-        Column('strip', 'TEXT', hint='Owning vse_strips.name.'),
+        Column(
+            'scene',
+            'TEXT',
+            identifier=True,
+            hint='Owning sequencer scenes.name (where the strip lives).',
+        ),
+        Column('strip', 'TEXT', identifier=True, hint='Owning vse_strips.name.'),
         Column('source_scene', 'TEXT', hint='scenes.name being rendered by the strip.'),
         Column(
             'scene_camera',
@@ -307,8 +317,8 @@ class VseStripText(IteratorVTable):
         'Read-only.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('scene', 'TEXT', hint='Owning scenes.name.'),
-        Column('strip', 'TEXT', hint='Owning vse_strips.name.'),
+        Column('scene', 'TEXT', identifier=True, hint='Owning scenes.name.'),
+        Column('strip', 'TEXT', identifier=True, hint='Owning vse_strips.name.'),
         Column('text', 'TEXT', hint='Rendered text content.'),
         Column('font', 'TEXT', hint='Bound fonts.name; NULL uses Blender built-in.'),
         Column('font_size', 'REAL', hint='Text size in points.'),
@@ -383,8 +393,8 @@ class VseStripColor(IteratorVTable):
         'level opacity lives on vse_strips.blend_alpha. Read-only.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('scene', 'TEXT', hint='Owning scenes.name.'),
-        Column('strip', 'TEXT', hint='Owning vse_strips.name.'),
+        Column('scene', 'TEXT', identifier=True, hint='Owning scenes.name.'),
+        Column('strip', 'TEXT', identifier=True, hint='Owning vse_strips.name.'),
         Column('color_r', 'REAL'),
         Column('color_g', 'REAL'),
         Column('color_b', 'REAL'),

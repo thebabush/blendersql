@@ -122,6 +122,60 @@ def test_insert_non_empty_type_rejected(client) -> None:
     assert 'EMPTY' in r.get('error', '')
 
 
+def test_writable_vtable_insert_grows_identifiers(client) -> None:
+    # Regression for B3: _WritableVTable.UpdateInsertRow used to return
+    # `len(_identifiers)` without appending the new identifier. The returned
+    # rowid then pointed one past the end of `_identifiers`; any apsw callback
+    # that subsequently looked up `_identifiers[rowid]` (UpdateChangeRow /
+    # UpdateDeleteRow) would IndexError. Drive the vtable directly inside
+    # Blender via bpy_exec — pure-SQL paths don't exercise the bug because
+    # apsw opens a fresh cursor (and we re-snapshot) for every top-level
+    # statement, so `_identifiers` is always rebuilt before the next op.
+    import json
+
+    code = (
+        # The extension package path inside Blender is namespaced — pull the
+        # module by suffix so the test is robust to bl_ext layout changes.
+        'import sys\n'
+        'base = next(m for n, m in sys.modules.items() if n.endswith(".sql.vtables.base"))\n'
+        '\n'
+        'class FakeSource(base.WritableSnapshotVTable):\n'
+        '    table_name = "fake"\n'
+        '    def _apply_insert(self, fields):\n'
+        '        return ("ident", fields[0])\n'
+        '    def _describe_identifier(self, identifier):\n'
+        '        return repr(identifier)\n'
+        '\n'
+        '# Stub the undo_push side-effect so we can drive the writable vtable\n'
+        '# without an actual bpy operator context.\n'
+        'class _NoOp:\n'
+        '    def __call__(self, *a, **kw): pass\n'
+        'import bpy\n'
+        'orig = bpy.ops.ed.undo_push\n'
+        'bpy.ops.ed.undo_push = _NoOp()\n'
+        'try:\n'
+        '    vt = base._WritableVTable(FakeSource())\n'
+        '    vt._identifiers = ["pre0", "pre1"]\n'
+        '    rid = vt.UpdateInsertRow(None, ("payload",))\n'
+        '    ok = (\n'
+        '        len(vt._identifiers) == 3\n'
+        '        and 0 <= rid < len(vt._identifiers)\n'
+        '        and vt._identifiers[rid] == ("ident", "payload")\n'
+        '    )\n'
+        '    result = {"ok": ok, "rid": rid, "ids_len": len(vt._identifiers)}\n'
+        'finally:\n'
+        '    bpy.ops.ed.undo_push = orig\n'
+    )
+    r = client.query(f"SELECT bpy_exec('{code}')")
+    assert r['ok'], r
+    payload = json.loads(r['rows'][0][0])
+    assert payload.get('error') is None, payload
+    assert payload['result']['ok'], payload['result']
+    # Returned rowid must address the just-inserted entry (index of last
+    # element after append).
+    assert payload['result']['rid'] == payload['result']['ids_len'] - 1, payload['result']
+
+
 def test_update_name_round_trip(client) -> None:
     r = client.query("UPDATE objects SET name='CubeRenamed' WHERE name='Cube'")
     assert r['ok'], r

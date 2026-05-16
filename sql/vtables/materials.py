@@ -27,12 +27,20 @@ class Materials(WritableSnapshotVTable):
         'objects use a material. is_grease_pencil is read-only after INSERT.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', writable=True, pk=True, hint='Unique within bpy.data.materials.'),
+        Column(
+            'name',
+            'TEXT',
+            writable=True,
+            pk=True,
+            identifier=True,
+            hint='Unique within bpy.data.materials.',
+        ),
         Column('users', 'INTEGER', hint='Refcount across the file; read-only.'),
         Column('use_nodes', 'INTEGER', writable=True, hint='Boolean as 0/1; toggles node tree.'),
         Column(
             'is_grease_pencil',
             'INTEGER',
+            insert_only=True,
             hint='Boolean as 0/1; settable on INSERT only (datablock restructure).',
         ),
         Column(
@@ -42,7 +50,14 @@ class Materials(WritableSnapshotVTable):
             hint='EEVEE: DITHERED / BLENDED.',
         ),
     )
-    RELATED: tuple[str, ...] = ('material_slots', 'objects', 'node_trees')
+    RELATED: tuple[str, ...] = (
+        'material_slots',
+        'objects',
+        'node_trees',
+        'gp_strokes',
+        'images',
+        'material_gp_settings',
+    )
     schema = (
         'CREATE TABLE materials('
         'name TEXT, '
@@ -164,11 +179,18 @@ class MaterialSlots(WritableSnapshotVTable):
         'are blocked (would need to remap polygon material_index).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('object', 'TEXT', pk=True, hint='Owning object name; part of the identifier.'),
+        Column(
+            'object',
+            'TEXT',
+            pk=True,
+            identifier=True,
+            hint='Owning object name; part of the identifier.',
+        ),
         Column(
             'slot_index',
             'INTEGER',
             pk=True,
+            identifier=True,
             hint='0-based slot index on the object; part of the identifier.',
         ),
         Column(
@@ -176,7 +198,7 @@ class MaterialSlots(WritableSnapshotVTable):
         ),
         Column('link', 'TEXT', hint="'DATA' or 'OBJECT' — where the slot is stored."),
     )
-    RELATED: tuple[str, ...] = ('objects', 'materials')
+    RELATED: tuple[str, ...] = ('objects', 'materials', 'grease_pencils')
     schema = (
         'CREATE TABLE material_slots(object TEXT, slot_index INTEGER, material TEXT, link TEXT)'
     )

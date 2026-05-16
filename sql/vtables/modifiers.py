@@ -42,12 +42,19 @@ class Modifiers(WritableSnapshotVTable):
         'object context. INSERT is blocked — use the add_modifier verb to create one.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('object', 'TEXT', pk=True, hint='Owning object name; part of the identifier.'),
+        Column(
+            'object',
+            'TEXT',
+            pk=True,
+            identifier=True,
+            hint='Owning object name; part of the identifier.',
+        ),
         Column(
             'name',
             'TEXT',
             writable=True,
             pk=True,
+            identifier=True,
             hint='Modifier name on the object; part of the identifier.',
         ),
         Column('type', 'TEXT', hint='SUBSURF / ARRAY / MIRROR / BEVEL / ... read-only.'),

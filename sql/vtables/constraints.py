@@ -48,11 +48,18 @@ class Constraints(WritableSnapshotVTable):
         'tweaks influence/mute, or edits params_json. INSERT is blocked — use the add_constraint verb.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('owner_type', 'TEXT', pk=True, hint="'OBJECT' or 'POSE_BONE'; part of identifier."),
+        Column(
+            'owner_type',
+            'TEXT',
+            pk=True,
+            identifier=True,
+            hint="'OBJECT' or 'POSE_BONE'; part of identifier.",
+        ),
         Column(
             'owner_name',
             'TEXT',
             pk=True,
+            identifier=True,
             hint="Object name, or 'object/bone' for pose-bone owners.",
         ),
         Column(
@@ -60,6 +67,7 @@ class Constraints(WritableSnapshotVTable):
             'TEXT',
             writable=True,
             pk=True,
+            identifier=True,
             hint='Constraint name on the owner; part of identifier.',
         ),
         Column('type', 'TEXT', hint='COPY_LOCATION / TRACK_TO / IK / ... read-only on UPDATE.'),
@@ -84,7 +92,7 @@ class Constraints(WritableSnapshotVTable):
             hint='JSON object of type-specific bl_rna props; UPDATE diffs against current.',
         ),
     )
-    RELATED: tuple[str, ...] = ('objects',)
+    RELATED: tuple[str, ...] = ('objects', 'pose_bones')
     schema = (
         'CREATE TABLE constraints('
         'owner_type TEXT, '

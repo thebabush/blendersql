@@ -20,8 +20,13 @@ class VertexGroups(IteratorVTable):
         'bones.name=vertex_groups.name (by-name binding into the armature).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('object', 'TEXT', hint='Owning objects.name; part of identity.'),
-        Column('name', 'TEXT', hint='Group name (often matches a bone name for armature deform).'),
+        Column('object', 'TEXT', identifier=True, hint='Owning objects.name; part of identity.'),
+        Column(
+            'name',
+            'TEXT',
+            identifier=True,
+            hint='Group name (often matches a bone name for armature deform).',
+        ),
         Column('index', 'INTEGER', hint='Positional slot index on the object.'),
         Column(
             'lock_weight',

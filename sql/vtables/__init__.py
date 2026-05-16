@@ -16,10 +16,21 @@ if TYPE_CHECKING:
 # on every fresh registration to avoid leftover entries.
 _REGISTRY: dict[str, VTableMeta] = {}
 
+# Monotonic counter bumped on every `_bind` call. Lets introspection vtables
+# (bsql_tables / bsql_columns) cache their snapshots and invalidate cheaply —
+# the registry only changes when `register_all` re-runs, so the counter is
+# stable for the lifetime of a session.
+_REGISTRY_VERSION = 0
+
 
 def registry() -> dict[str, VTableMeta]:
     """Return the {table_name: vtable_instance} registry. Read-only by convention."""
     return _REGISTRY
+
+
+def registry_version() -> int:
+    """Monotonic version; bumped every time `_bind` mutates the registry."""
+    return _REGISTRY_VERSION
 
 
 def register_all(engine: Engine) -> None:
@@ -132,6 +143,7 @@ def register_all(engine: Engine) -> None:
     _bind(engine, 'session_log', session_log.SessionLog())
     _bind(engine, 'bsql_tables', bsql.BsqlTables())
     _bind(engine, 'bsql_columns', bsql.BsqlColumns())
+    _bind(engine, 'bsql_related', bsql.BsqlRelated())
 
     engine.conn.createscalarfunction('grep', _grep_scalar, -1, deterministic=False)
 
@@ -143,6 +155,8 @@ def _bind(engine: Engine, table_name: str, source: VTableMeta) -> None:
     engine.conn.createmodule(module_name, source)  # type: ignore[arg-type]
     engine.conn.execute(f'CREATE VIRTUAL TABLE {table_name} USING {module_name}')
     _REGISTRY[table_name] = source
+    global _REGISTRY_VERSION
+    _REGISTRY_VERSION += 1
 
 
 def _grep_scalar(*args: object) -> str:

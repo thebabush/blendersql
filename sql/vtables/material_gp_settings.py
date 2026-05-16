@@ -109,6 +109,7 @@ class MaterialGpSettings(WritableSnapshotVTable):
             'material',
             'TEXT',
             pk=True,
+            identifier=True,
             hint='Owning materials.name; read-only identifier (and PK).',
         ),
         Column('mode', 'TEXT', writable=True, hint='LINE / DOTS / SQUARES.'),

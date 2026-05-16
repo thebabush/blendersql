@@ -18,7 +18,7 @@ class GreasePencils(IteratorVTable):
         "datablock just like meshes (objects.data is the gp name when objects.type='GPENCIL')."
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.grease_pencils.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.grease_pencils.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('layer_count', 'INTEGER', hint='len(gp.layers).'),
         Column('layer_group_count', 'INTEGER', hint='len(gp.layer_groups).'),
@@ -70,8 +70,8 @@ class GpLayerGroups(IteratorVTable):
         'parent_group is recursive (a group can sit inside another).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('gp', 'TEXT', hint='Owning grease_pencils.name.'),
-        Column('name', 'TEXT', hint='Group name; unique within the gp datablock.'),
+        Column('gp', 'TEXT', identifier=True, hint='Owning grease_pencils.name.'),
+        Column('name', 'TEXT', identifier=True, hint='Group name; unique within the gp datablock.'),
         Column('parent_group', 'TEXT', hint='Enclosing group name; NULL for top-level.'),
         Column('hide', 'INTEGER', hint='Boolean as 0/1; cascades to child layers in the viewport.'),
         Column('lock', 'INTEGER', hint='Boolean as 0/1; cascades to child layers for editing.'),
@@ -157,8 +157,21 @@ class GpLayers(WritableSnapshotVTable):
         'ON gp_layer_groups.gp=gp_layers.gp AND gp_layer_groups.name=gp_layers.parent_group.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('gp', 'TEXT', pk=True, hint='Owning grease_pencils.name; part of identifier.'),
-        Column('name', 'TEXT', writable=True, pk=True, hint='Layer name; part of identifier.'),
+        Column(
+            'gp',
+            'TEXT',
+            pk=True,
+            identifier=True,
+            hint='Owning grease_pencils.name; part of identifier.',
+        ),
+        Column(
+            'name',
+            'TEXT',
+            writable=True,
+            pk=True,
+            identifier=True,
+            hint='Layer name; part of identifier.',
+        ),
         Column(
             'parent_group',
             'TEXT',

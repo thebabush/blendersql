@@ -60,7 +60,7 @@ class Lights(IteratorVTable):
         'live in params_json.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.lights.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.lights.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('type', 'TEXT', hint='POINT / SUN / SPOT / AREA.'),
         Column('energy', 'REAL', hint='Emission strength (units vary by engine).'),

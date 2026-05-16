@@ -45,7 +45,14 @@ class Objects(WritableSnapshotVTable):
         'with a data datablock use the add_object() verb (only EMPTY supported via direct INSERT).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', writable=True, pk=True, hint='Unique within bpy.data.objects.'),
+        Column(
+            'name',
+            'TEXT',
+            writable=True,
+            pk=True,
+            identifier=True,
+            hint='Unique within bpy.data.objects.',
+        ),
         Column(
             'type', 'TEXT', hint='MESH / EMPTY / LIGHT / CAMERA / ARMATURE / CURVE / GPENCIL / ...'
         ),
@@ -77,9 +84,19 @@ class Objects(WritableSnapshotVTable):
     RELATED: tuple[str, ...] = (
         'scene_objects',
         'collection_objects',
+        'collections',
         'material_slots',
+        'materials',
         'modifiers',
         'constraints',
+        'meshes',
+        'armatures',
+        'lights',
+        'cameras',
+        'curves',
+        'texts',
+        'pose_bones',
+        'vertex_groups',
     )
     schema = (
         'CREATE TABLE objects('

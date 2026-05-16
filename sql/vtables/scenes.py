@@ -15,7 +15,7 @@ class Scenes(IteratorVTable):
         '(scene=scenes.name) to enumerate the flattened object set per scene.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.scenes.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.scenes.'),
         Column('frame_current', 'INTEGER', hint='Current playhead frame.'),
         Column('frame_start', 'INTEGER', hint='Playback range start.'),
         Column('frame_end', 'INTEGER', hint='Playback range end.'),
@@ -30,7 +30,13 @@ class Scenes(IteratorVTable):
         Column('view_layer_count', 'INTEGER', hint='Number of view layers.'),
         Column('sequence_strip_count', 'INTEGER', hint='Total VSE strips across all channels.'),
     )
-    RELATED: tuple[str, ...] = ('scene_objects', 'collections', 'vse_strips')
+    RELATED: tuple[str, ...] = (
+        'scene_objects',
+        'collections',
+        'vse_strips',
+        'worlds',
+        'vse_strip_scene',
+    )
     schema = (
         'CREATE TABLE scenes('
         'name TEXT, '
@@ -90,8 +96,13 @@ class SceneObjects(IteratorVTable):
         'Contrast with collection_objects which is the direct (non-recursive) collection<->object link.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('scene', 'TEXT', hint='Owning scenes.name.'),
-        Column('object', 'TEXT', hint='objects.name reachable from this scene (any depth).'),
+        Column('scene', 'TEXT', identifier=True, hint='Owning scenes.name.'),
+        Column(
+            'object',
+            'TEXT',
+            identifier=True,
+            hint='objects.name reachable from this scene (any depth).',
+        ),
         Column(
             'type', 'TEXT', hint='Object type (MESH / EMPTY / LIGHT / ...); mirrors objects.type.'
         ),

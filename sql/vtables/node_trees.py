@@ -65,11 +65,13 @@ class NodeTrees(IteratorVTable):
         Column(
             'owner_type',
             'TEXT',
+            identifier=True,
             hint='node_group / material / world / light / linestyle / scene.',
         ),
         Column(
             'owner_name',
             'TEXT',
+            identifier=True,
             hint='Name of the owning datablock; join key for nodes/links/sockets.',
         ),
         Column('node_count', 'INTEGER', hint='len(tree.nodes).'),
@@ -82,6 +84,10 @@ class NodeTrees(IteratorVTable):
         'node_outputs',
         'node_tree_interface',
         'materials',
+        'images',
+        'lights',
+        'worlds',
+        'linestyles',
     )
     schema = (
         'CREATE TABLE node_trees('
@@ -119,8 +125,8 @@ class Nodes(IteratorVTable):
         '(tree,from_node/to_node) for connectivity.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('tree', 'TEXT', hint='Owning tree name (node_trees.owner_name).'),
-        Column('name', 'TEXT', hint='Node name; unique within its tree.'),
+        Column('tree', 'TEXT', identifier=True, hint='Owning tree name (node_trees.owner_name).'),
+        Column('name', 'TEXT', identifier=True, hint='Node name; unique within its tree.'),
         Column('bl_idname', 'TEXT', hint='RNA class id (ShaderNodeBsdfPrincipled, ...).'),
         Column('type', 'TEXT', hint='High-level type token (BSDF_PRINCIPLED, GROUP, ...).'),
         Column('location_x', 'REAL'),
@@ -132,7 +138,13 @@ class Nodes(IteratorVTable):
         Column('width', 'REAL', hint='Editor width in pixels.'),
         Column('height', 'REAL', hint='Editor height in pixels.'),
     )
-    RELATED: tuple[str, ...] = ('node_trees', 'node_inputs', 'node_outputs', 'node_links')
+    RELATED: tuple[str, ...] = (
+        'node_trees',
+        'node_inputs',
+        'node_outputs',
+        'node_links',
+        'node_tree_interface',
+    )
     schema = (
         'CREATE TABLE nodes('
         'tree TEXT, '
@@ -196,13 +208,26 @@ class NodeInputs(WritableSnapshotVTable):
         'INSERT/DELETE are blocked (sockets are defined by the node class).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('tree', 'TEXT', pk=True, hint='Owning tree name; part of identifier.'),
-        Column('node', 'TEXT', pk=True, hint='Owning node name; part of identifier.'),
+        Column(
+            'tree',
+            'TEXT',
+            pk=True,
+            identifier=True,
+            hint='Owning tree name; part of identifier.',
+        ),
+        Column(
+            'node',
+            'TEXT',
+            pk=True,
+            identifier=True,
+            hint='Owning node name; part of identifier.',
+        ),
         Column('identifier', 'TEXT', hint='Stable socket identifier from Blender.'),
         Column(
             'index',
             'INTEGER',
             pk=True,
+            identifier=True,
             hint='0-based socket index on the node; part of identifier.',
         ),
         Column('name', 'TEXT', hint='Socket display name.'),
@@ -217,7 +242,13 @@ class NodeInputs(WritableSnapshotVTable):
             'is_linked', 'INTEGER', hint='Boolean as 0/1; linked sockets reject default writes.'
         ),
     )
-    RELATED: tuple[str, ...] = ('node_trees', 'nodes', 'node_links', 'node_outputs')
+    RELATED: tuple[str, ...] = (
+        'node_trees',
+        'nodes',
+        'node_links',
+        'node_outputs',
+        'node_tree_interface',
+    )
     schema = (
         'CREATE TABLE node_inputs('
         'tree TEXT, '
@@ -279,10 +310,10 @@ class NodeOutputs(IteratorVTable):
         '(from_node,from_socket) to trace what feeds into downstream nodes.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('tree', 'TEXT', hint='Owning tree name.'),
-        Column('node', 'TEXT', hint='Owning node name.'),
+        Column('tree', 'TEXT', identifier=True, hint='Owning tree name.'),
+        Column('node', 'TEXT', identifier=True, hint='Owning node name.'),
         Column('identifier', 'TEXT', hint='Stable socket identifier from Blender.'),
-        Column('index', 'INTEGER', hint='0-based socket index on the node.'),
+        Column('index', 'INTEGER', identifier=True, hint='0-based socket index on the node.'),
         Column('name', 'TEXT', hint='Socket display name.'),
         Column('type', 'TEXT', hint='VALUE / VECTOR / RGBA / SHADER / GEOMETRY / ...'),
         Column(
@@ -294,7 +325,13 @@ class NodeOutputs(IteratorVTable):
             'is_linked', 'INTEGER', hint='Boolean as 0/1; whether anything consumes this output.'
         ),
     )
-    RELATED: tuple[str, ...] = ('node_trees', 'nodes', 'node_links', 'node_inputs')
+    RELATED: tuple[str, ...] = (
+        'node_trees',
+        'nodes',
+        'node_links',
+        'node_inputs',
+        'node_tree_interface',
+    )
     schema = (
         'CREATE TABLE node_outputs('
         'tree TEXT, '
@@ -319,11 +356,11 @@ class NodeLinks(IteratorVTable):
         'Mutate via bpy_exec (tree.links.new / .remove).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('tree', 'TEXT', hint='Owning tree name.'),
-        Column('from_node', 'TEXT', hint='Source node name.'),
-        Column('from_socket', 'TEXT', hint='Source socket display name.'),
-        Column('to_node', 'TEXT', hint='Destination node name.'),
-        Column('to_socket', 'TEXT', hint='Destination socket display name.'),
+        Column('tree', 'TEXT', identifier=True, hint='Owning tree name.'),
+        Column('from_node', 'TEXT', identifier=True, hint='Source node name.'),
+        Column('from_socket', 'TEXT', identifier=True, hint='Source socket display name.'),
+        Column('to_node', 'TEXT', identifier=True, hint='Destination node name.'),
+        Column('to_socket', 'TEXT', identifier=True, hint='Destination socket display name.'),
         Column('is_muted', 'INTEGER', hint='Boolean as 0/1; link disabled.'),
         Column('is_valid', 'INTEGER', hint='Boolean as 0/1; Blender accepts the type pairing.'),
     )
@@ -371,8 +408,15 @@ class NodeTreeInterface(IteratorVTable):
         'SOCKETs. Mutate via bpy_exec (tree.interface.new_socket / .new_panel).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('tree', 'TEXT', hint='Owning node-group name (node_trees.owner_name).'),
-        Column('identifier', 'TEXT', hint='Stable interface-item identifier from Blender.'),
+        Column(
+            'tree', 'TEXT', identifier=True, hint='Owning node-group name (node_trees.owner_name).'
+        ),
+        Column(
+            'identifier',
+            'TEXT',
+            identifier=True,
+            hint='Stable interface-item identifier from Blender.',
+        ),
         Column('name', 'TEXT', hint='Display name of the socket / panel.'),
         Column('item_type', 'TEXT', hint='SOCKET or PANEL.'),
         Column('in_out', 'TEXT', hint='INPUT / OUTPUT for SOCKETs; NULL for PANELs.'),

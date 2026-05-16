@@ -23,8 +23,18 @@ class AnimationData(IteratorVTable):
         'integer link to action_channelbags.slot_handle. Drivers live in the `drivers` vtable.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('owner_type', 'TEXT', hint='Container kind (objects / materials / scenes / ...).'),
-        Column('owner_id', 'TEXT', hint='Datablock name that owns this animation_data.'),
+        Column(
+            'owner_type',
+            'TEXT',
+            identifier=True,
+            hint='Container kind (objects / materials / scenes / ...).',
+        ),
+        Column(
+            'owner_id',
+            'TEXT',
+            identifier=True,
+            hint='Datablock name that owns this animation_data.',
+        ),
         Column('action', 'TEXT', hint='Bound action name; NULL if unbound.'),
         Column(
             'action_slot', 'TEXT', hint='Slot identifier within the bound action; NULL if unbound.'
@@ -98,10 +108,22 @@ class Drivers(IteratorVTable):
         'block, not the channelbag fcurves table.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('owner_type', 'TEXT', hint='Container kind of the owning datablock.'),
-        Column('owner_id', 'TEXT', hint='Owning datablock name.'),
-        Column('data_path', 'TEXT', hint="RNA path being driven (e.g. 'location[0]')."),
-        Column('array_index', 'INTEGER', hint='Vector component index, 0 for scalars.'),
+        Column(
+            'owner_type', 'TEXT', identifier=True, hint='Container kind of the owning datablock.'
+        ),
+        Column('owner_id', 'TEXT', identifier=True, hint='Owning datablock name.'),
+        Column(
+            'data_path',
+            'TEXT',
+            identifier=True,
+            hint="RNA path being driven (e.g. 'location[0]').",
+        ),
+        Column(
+            'array_index',
+            'INTEGER',
+            identifier=True,
+            hint='Vector component index, 0 for scalars.',
+        ),
         Column('type', 'TEXT', hint='AVERAGE / SUM / SCRIPTED / MIN / MAX.'),
         Column('expression', 'TEXT', hint='Python expression when type=SCRIPTED.'),
         Column('use_self', 'INTEGER', hint='Boolean as 0/1; expression has access to `self`.'),
@@ -173,11 +195,20 @@ class DriverVariables(IteratorVTable):
         'walk inputs. Most types have 1 target; ROTATION_DIFF and LOC_DIFF have 2.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('owner_type', 'TEXT', hint='Container kind of the owning datablock.'),
-        Column('owner_id', 'TEXT', hint='Owning datablock name.'),
-        Column('data_path', 'TEXT', hint='RNA path of the driven property.'),
-        Column('array_index', 'INTEGER', hint='Vector component index of the driven property.'),
-        Column('name', 'TEXT', hint='Variable name used in the driver expression.'),
+        Column(
+            'owner_type', 'TEXT', identifier=True, hint='Container kind of the owning datablock.'
+        ),
+        Column('owner_id', 'TEXT', identifier=True, hint='Owning datablock name.'),
+        Column('data_path', 'TEXT', identifier=True, hint='RNA path of the driven property.'),
+        Column(
+            'array_index',
+            'INTEGER',
+            identifier=True,
+            hint='Vector component index of the driven property.',
+        ),
+        Column(
+            'name', 'TEXT', identifier=True, hint='Variable name used in the driver expression.'
+        ),
         Column(
             'type',
             'TEXT',
@@ -234,12 +265,24 @@ class DriverTargets(IteratorVTable):
         'targets; transform_type / transform_space matter for TRANSFORMS variable type.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('owner_type', 'TEXT', hint='Container kind of the owning datablock.'),
-        Column('owner_id', 'TEXT', hint='Owning datablock name.'),
-        Column('data_path', 'TEXT', hint='RNA path of the driven property.'),
-        Column('array_index', 'INTEGER', hint='Vector component index of the driven property.'),
-        Column('variable', 'TEXT', hint='Owning driver variable name.'),
-        Column('index', 'INTEGER', hint='Positional index in variable.targets (0 or 1).'),
+        Column(
+            'owner_type', 'TEXT', identifier=True, hint='Container kind of the owning datablock.'
+        ),
+        Column('owner_id', 'TEXT', identifier=True, hint='Owning datablock name.'),
+        Column('data_path', 'TEXT', identifier=True, hint='RNA path of the driven property.'),
+        Column(
+            'array_index',
+            'INTEGER',
+            identifier=True,
+            hint='Vector component index of the driven property.',
+        ),
+        Column('variable', 'TEXT', identifier=True, hint='Owning driver variable name.'),
+        Column(
+            'index',
+            'INTEGER',
+            identifier=True,
+            hint='Positional index in variable.targets (0 or 1).',
+        ),
         Column(
             'id_type', 'TEXT', hint='OBJECT / MATERIAL / NODETREE / ... — what the id points to.'
         ),

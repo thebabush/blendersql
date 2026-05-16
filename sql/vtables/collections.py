@@ -16,7 +16,7 @@ class Collections(IteratorVTable):
         'scene_objects for the flattened recursive view per scene.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.collections.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.collections.'),
         Column(
             'parent_collection', 'TEXT', hint='Name of parent collection; NULL for scene roots.'
         ),
@@ -25,7 +25,7 @@ class Collections(IteratorVTable):
         Column('child_count', 'INTEGER', hint='Number of direct child collections.'),
         Column('object_count', 'INTEGER', hint='Number of directly linked objects.'),
     )
-    RELATED: tuple[str, ...] = ('collection_objects', 'scene_objects', 'objects')
+    RELATED: tuple[str, ...] = ('collection_objects', 'scene_objects', 'objects', 'scenes')
     schema = (
         'CREATE TABLE collections('
         'name TEXT, '
@@ -65,8 +65,13 @@ class CollectionObjects(IteratorVTable):
         'collection_objects.collection to enrich with parent/visibility.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('collection', 'TEXT', hint='Owning collections.name.'),
-        Column('object', 'TEXT', hint='objects.name directly linked into this collection.'),
+        Column('collection', 'TEXT', identifier=True, hint='Owning collections.name.'),
+        Column(
+            'object',
+            'TEXT',
+            identifier=True,
+            hint='objects.name directly linked into this collection.',
+        ),
     )
     RELATED: tuple[str, ...] = ('collections', 'objects', 'scene_objects')
     schema = 'CREATE TABLE collection_objects(collection TEXT, object TEXT)'

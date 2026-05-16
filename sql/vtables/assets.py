@@ -19,7 +19,7 @@ class Images(IteratorVTable):
         "effect after the first render — don't assert exact row counts. Mutate via bpy_exec."
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.images.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.images.'),
         Column('filepath', 'TEXT', hint='On-disk path; advisory when packed=1.'),
         Column('source', 'TEXT', hint='FILE / MOVIE / SEQUENCE / GENERATED / TILED / VIEWER.'),
         Column('width', 'INTEGER', hint='size[0]; 0 when has_data=0.'),
@@ -85,7 +85,7 @@ class Sounds(IteratorVTable):
         'is embedded in the .blend (filepath is advisory). Mutate via bpy_exec.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.sounds.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.sounds.'),
         Column('filepath', 'TEXT', hint='On-disk path; advisory when packed=1.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('use_memory_cache', 'INTEGER', hint='Boolean as 0/1; decoded audio cached in RAM.'),
@@ -125,7 +125,7 @@ class MovieClips(IteratorVTable):
         'The clip is always file-backed (no pack flag here). Mutate via bpy_exec.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.movieclips.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.movieclips.'),
         Column('filepath', 'TEXT', hint='On-disk path to the video / image sequence.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('frame_duration', 'INTEGER', hint='Total frames in the clip.'),
@@ -172,7 +172,7 @@ class CacheFiles(IteratorVTable):
         'to objects/modifiers from SQL today (those references are inside modifier params).'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.cache_files.'),
+        Column('name', 'TEXT', identifier=True, hint='Unique within bpy.data.cache_files.'),
         Column('filepath', 'TEXT', hint='On-disk path to the .abc / .usd archive.'),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('frame', 'REAL', hint='Current evaluation frame within the cache.'),
@@ -226,14 +226,19 @@ class Fonts(IteratorVTable):
         'font on texts means the built-in Bfont). packed=1 means the .ttf/.otf is embedded.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('name', 'TEXT', hint='Unique within bpy.data.fonts; Bfont for the built-in.'),
+        Column(
+            'name',
+            'TEXT',
+            identifier=True,
+            hint='Unique within bpy.data.fonts; Bfont for the built-in.',
+        ),
         Column(
             'filepath', 'TEXT', hint='On-disk path to the font file; empty for the built-in Bfont.'
         ),
         Column('users', 'INTEGER', hint='Refcount across the file.'),
         Column('packed', 'INTEGER', hint='Boolean as 0/1; font embedded in the .blend.'),
     )
-    RELATED: tuple[str, ...] = ('texts',)
+    RELATED: tuple[str, ...] = ('texts', 'vse_strip_text')
     schema = 'CREATE TABLE fonts(name TEXT, filepath TEXT, users INTEGER, packed INTEGER)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:

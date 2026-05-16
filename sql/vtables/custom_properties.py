@@ -53,15 +53,17 @@ class CustomProperties(WritableSnapshotVTable):
         Column(
             'datablock_type',
             'TEXT',
-            writable=True,
             pk=True,
+            identifier=True,
+            insert_only=True,
             hint='Container kind (objects / materials / ...); immutable on UPDATE.',
         ),
         Column(
             'datablock_name',
             'TEXT',
-            writable=True,
             pk=True,
+            identifier=True,
+            insert_only=True,
             hint='Owning datablock name; immutable on UPDATE.',
         ),
         Column(
@@ -69,6 +71,7 @@ class CustomProperties(WritableSnapshotVTable):
             'TEXT',
             writable=True,
             pk=True,
+            identifier=True,
             hint='ID-property key; UPDATE may rename if non-colliding.',
         ),
         Column(

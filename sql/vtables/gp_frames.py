@@ -22,9 +22,14 @@ class GpFrames(IteratorVTable):
         'gp_strokes.layer=gp_frames.layer AND gp_strokes.frame=gp_frames.frame_number.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('gp', 'TEXT', hint='Owning grease_pencils.name.'),
-        Column('layer', 'TEXT', hint='Owning gp_layers.name.'),
-        Column('frame_number', 'INTEGER', hint='Scene frame number this drawing occupies.'),
+        Column('gp', 'TEXT', identifier=True, hint='Owning grease_pencils.name.'),
+        Column('layer', 'TEXT', identifier=True, hint='Owning gp_layers.name.'),
+        Column(
+            'frame_number',
+            'INTEGER',
+            identifier=True,
+            hint='Scene frame number this drawing occupies.',
+        ),
         Column(
             'keyframe_type', 'TEXT', hint='KEYFRAME / BREAKDOWN / MOVING_HOLD / EXTREME / JITTER.'
         ),
@@ -71,10 +76,16 @@ class GpStrokes(WritableSnapshotVTable):
         'AND material_slots.slot_index=gp_strokes.material_index.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('gp', 'TEXT', pk=True, hint='Owning grease_pencils.name.'),
-        Column('layer', 'TEXT', pk=True, hint='Owning gp_layers.name.'),
-        Column('frame', 'INTEGER', pk=True, hint='Owning gp_frames.frame_number.'),
-        Column('index', 'INTEGER', pk=True, hint='Positional index in drawing.strokes.'),
+        Column('gp', 'TEXT', pk=True, identifier=True, hint='Owning grease_pencils.name.'),
+        Column('layer', 'TEXT', pk=True, identifier=True, hint='Owning gp_layers.name.'),
+        Column('frame', 'INTEGER', pk=True, identifier=True, hint='Owning gp_frames.frame_number.'),
+        Column(
+            'index',
+            'INTEGER',
+            pk=True,
+            identifier=True,
+            hint='Positional index in drawing.strokes.',
+        ),
         Column(
             'curve_type',
             'INTEGER',
@@ -186,11 +197,11 @@ class GpPoints(IteratorVTable):
         'tens of thousands of points, push down on (gp, layer) if it grows further.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('gp', 'TEXT', hint='Owning grease_pencils.name.'),
-        Column('layer', 'TEXT', hint='Owning gp_layers.name.'),
-        Column('frame', 'INTEGER', hint='Owning gp_frames.frame_number.'),
-        Column('stroke', 'INTEGER', hint='Owning gp_strokes."index".'),
-        Column('index', 'INTEGER', hint='Positional index in stroke.points.'),
+        Column('gp', 'TEXT', identifier=True, hint='Owning grease_pencils.name.'),
+        Column('layer', 'TEXT', identifier=True, hint='Owning gp_layers.name.'),
+        Column('frame', 'INTEGER', identifier=True, hint='Owning gp_frames.frame_number.'),
+        Column('stroke', 'INTEGER', identifier=True, hint='Owning gp_strokes."index".'),
+        Column('index', 'INTEGER', identifier=True, hint='Positional index in stroke.points.'),
         Column('x', 'REAL', hint='Point position X.'),
         Column('y', 'REAL', hint='Point position Y.'),
         Column('z', 'REAL', hint='Point position Z.'),
@@ -260,10 +271,10 @@ class GpDrawingAttributes(IteratorVTable):
         'gp_frames.layer=gp_drawing_attributes.layer AND gp_frames.frame_number=gp_drawing_attributes.frame.'
     )
     COLUMNS: tuple[Column, ...] = (
-        Column('gp', 'TEXT', hint='Owning grease_pencils.name.'),
-        Column('layer', 'TEXT', hint='Owning gp_layers.name.'),
-        Column('frame', 'INTEGER', hint='Owning gp_frames.frame_number.'),
-        Column('name', 'TEXT', hint='Attribute name on the drawing.'),
+        Column('gp', 'TEXT', identifier=True, hint='Owning grease_pencils.name.'),
+        Column('layer', 'TEXT', identifier=True, hint='Owning gp_layers.name.'),
+        Column('frame', 'INTEGER', identifier=True, hint='Owning gp_frames.frame_number.'),
+        Column('name', 'TEXT', identifier=True, hint='Attribute name on the drawing.'),
         Column('domain', 'TEXT', hint='POINT (per gp_point) or CURVE (per gp_stroke).'),
         Column('data_type', 'TEXT', hint='FLOAT / INT / FLOAT_VECTOR / FLOAT_COLOR / ...'),
     )
