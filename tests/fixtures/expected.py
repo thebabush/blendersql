@@ -24,7 +24,7 @@ EXPECTED: dict[str, int] = {
     # bsql_columns is the per-column introspection vtable — count == sum of
     # len(COLUMNS) across every migrated vtable. Bump this every time another
     # vtable's class-attr metadata lands.
-    'bsql_columns': 585,
+    'bsql_columns': 670,
     # bsql_tables is the introspection vtable — count == number of registered
     # tables (including itself). Keep this in lockstep with the registry; if
     # you add a new vtable, this count goes up by 1.

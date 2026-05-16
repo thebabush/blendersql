@@ -11,6 +11,18 @@ from .modifiers import _dump_props
 
 
 class Palettes(IteratorVTable):
+    DESCRIPTION = 'Palette datablocks: name, refcount, color count.'
+    AGENT_HINT = (
+        'Read-only catalog of bpy.data.palettes (named color swatches used by paint/sculpt/'
+        'GP tools). One palette holds N colors — JOIN palette_colors ON '
+        'palette_colors.palette=palettes.name to drill in. Mutate via bpy_exec.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Unique within bpy.data.palettes.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('color_count', 'INTEGER', hint='len(palette.colors).'),
+    )
+    RELATED: tuple[str, ...] = ('palette_colors',)
     schema = 'CREATE TABLE palettes(name TEXT, users INTEGER, color_count INTEGER)'
 
     def snapshot(self) -> list[tuple[Any, ...]]:
@@ -18,6 +30,23 @@ class Palettes(IteratorVTable):
 
 
 class PaletteColors(IteratorVTable):
+    DESCRIPTION = 'Per-palette color entries: RGB plus weight/strength for paint tools.'
+    AGENT_HINT = (
+        'Read-only; key is (palette, idx). idx is the 0-based position within the palette '
+        'and is meaningful — order is preserved and surfaces in the palette UI. JOIN palettes '
+        'ON palettes.name=palette_colors.palette. weight/strength apply to weight-paint and '
+        'GP tools respectively. Mutate via bpy_exec.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('palette', 'TEXT', hint='Owning palettes.name; part of identity.'),
+        Column('idx', 'INTEGER', hint='0-based index within the palette (order matters).'),
+        Column('r', 'REAL', hint='Color red channel (0..1).'),
+        Column('g', 'REAL'),
+        Column('b', 'REAL'),
+        Column('weight', 'REAL', hint='Weight-paint strength multiplier (0..1).'),
+        Column('strength', 'REAL', hint='GP draw strength multiplier (0..1).'),
+    )
+    RELATED: tuple[str, ...] = ('palettes',)
     schema = (
         'CREATE TABLE palette_colors('
         'palette TEXT, '
@@ -47,6 +76,28 @@ class PaletteColors(IteratorVTable):
 
 
 class LineStyles(IteratorVTable):
+    DESCRIPTION = 'FreestyleLineStyle datablocks: base color, thickness, chaining, node usage.'
+    AGENT_HINT = (
+        'Read-only catalog of bpy.data.linestyles (Freestyle NPR stroke styles). Linestyles '
+        'are wired into scenes via per-view-layer Freestyle linesets — there is no flat '
+        '`linestyle` column on scenes/view_layers; the relationship lives in scene.view_layers'
+        '[*].freestyle_settings.linesets (not exposed in SQL today, mutate via bpy_exec). When '
+        'use_nodes=1 the stroke shader lives in node_trees (owner_type=linestyle).'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Unique within bpy.data.linestyles.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('color_r', 'REAL', hint='Base stroke color red channel.'),
+        Column('color_g', 'REAL'),
+        Column('color_b', 'REAL'),
+        Column('alpha', 'REAL', hint='Base stroke alpha.'),
+        Column('thickness', 'REAL', hint='Base stroke thickness in px.'),
+        Column('use_chaining', 'INTEGER', hint='Boolean as 0/1; chain strokes together.'),
+        Column('chaining', 'TEXT', hint='PLAIN / SKETCHY — chaining algorithm.'),
+        Column('use_nodes', 'INTEGER', hint='Boolean as 0/1; surface a node_trees row.'),
+        Column('chain_count', 'INTEGER', hint='Number of strokes to chain (sketchy mode).'),
+    )
+    RELATED: tuple[str, ...] = ('scenes', 'node_trees')
     schema = (
         'CREATE TABLE linestyles('
         'name TEXT, '
@@ -164,6 +215,47 @@ _BRUSH_COMMON: frozenset[str] = frozenset(
 
 
 class Brushes(IteratorVTable):
+    DESCRIPTION = 'Brush datablocks: per-mode tool type, size/strength, blend mode, params blob.'
+    AGENT_HINT = (
+        "Read-only catalog of bpy.data.brushes — factory brushes (Blender's bundled ones, "
+        'users=0 unless picked) plus any custom brushes the file added. A fresh file already '
+        'has dozens of factory rows, so always filter (e.g. WHERE users>0, or by '
+        '*_brush_type IS NOT NULL for the mode you care about). Each *_brush_type column is '
+        "NULL when the brush isn't usable in that mode. params_json is a JSON blob of "
+        'mode-specific extras not promoted to top-level columns. Mutate via bpy_exec.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Unique within bpy.data.brushes.'),
+        Column(
+            'users',
+            'INTEGER',
+            hint='Refcount; factory brushes often sit at 0 until selected as the active tool.',
+        ),
+        Column('size', 'INTEGER', hint='Brush radius in px.'),
+        Column('strength', 'REAL', hint='Effect strength multiplier (0..1).'),
+        Column('blend', 'TEXT', hint='Brush blend mode (MIX / ADD / SUB / ...).'),
+        Column(
+            'image_brush_type',
+            'TEXT',
+            hint='Texture-paint tool id when applicable; NULL otherwise.',
+        ),
+        Column('sculpt_brush_type', 'TEXT', hint='Sculpt tool id when applicable; NULL otherwise.'),
+        Column(
+            'vertex_brush_type',
+            'TEXT',
+            hint='Vertex-paint tool id when applicable; NULL otherwise.',
+        ),
+        Column(
+            'weight_brush_type',
+            'TEXT',
+            hint='Weight-paint tool id when applicable; NULL otherwise.',
+        ),
+        Column(
+            'gpencil_brush_type', 'TEXT', hint='GP draw tool id when applicable; NULL otherwise.'
+        ),
+        Column('params_json', 'TEXT', hint='JSON dump of mode-specific properties.'),
+    )
+    RELATED: tuple[str, ...] = ()
     schema = (
         'CREATE TABLE brushes('
         'name TEXT, '
@@ -201,6 +293,21 @@ class Brushes(IteratorVTable):
 
 
 class Masks(IteratorVTable):
+    DESCRIPTION = 'Mask datablocks: 2D bezier masks with playback range and layer count.'
+    AGENT_HINT = (
+        'Read-only catalog of bpy.data.masks (2D vector masks used in compositing, VSE, and '
+        'tracking). VSE mask strips reference these (vse_strip_mask is not surfaced today; '
+        'JOIN vse_strip_movie / vse_strip_image only by side reference). The mask layers / '
+        'splines / points hierarchy is not surfaced here — mutate via bpy_exec.'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('name', 'TEXT', hint='Unique within bpy.data.masks.'),
+        Column('users', 'INTEGER', hint='Refcount across the file.'),
+        Column('frame_start', 'INTEGER', hint='Playback range start frame.'),
+        Column('frame_end', 'INTEGER', hint='Playback range end frame.'),
+        Column('layer_count', 'INTEGER', hint='len(mask.layers).'),
+    )
+    RELATED: tuple[str, ...] = ('vse_strip_movie', 'vse_strip_image')
     schema = (
         'CREATE TABLE masks('
         'name TEXT, '

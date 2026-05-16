@@ -297,6 +297,17 @@ def test_bsql_columns_covers_all_migrated_tables(client) -> None:
         'curve_splines',
         'curve_points',
         'texts',
+        'images',
+        'sounds',
+        'movieclips',
+        'cache_files',
+        'fonts',
+        'palettes',
+        'palette_colors',
+        'linestyles',
+        'brushes',
+        'masks',
+        'node_tree_interface',
     }
     assert expected_migrated.issubset(tables), (
         f'missing from bsql_columns: {expected_migrated - tables}'

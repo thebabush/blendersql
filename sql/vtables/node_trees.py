@@ -362,6 +362,36 @@ class NodeTreeInterface(IteratorVTable):
     # Only node groups have an interface; embedded trees (material/world/light/
     # linestyle/scene) have no sockets exposed to a parent graph.
     # Root panel's `.name` is the empty string — surface as NULL parent_panel.
+    DESCRIPTION = "Per-node-group interface items: the group's exposed sockets and panels."
+    AGENT_HINT = (
+        'Read-only. Defines what a node_group exposes to callers — distinct from node_inputs/'
+        'node_outputs (those are PER-NODE sockets inside the tree). Only node_groups have an '
+        "interface (material/world/light/linestyle/scene trees are embedded and don't). JOIN "
+        "node_trees ON node_trees.owner_name=node_tree_interface.tree AND owner_type='node_group'. "
+        'item_type is SOCKET or PANEL; in_out/socket_type/default_value_json are only set for '
+        'SOCKETs. Mutate via bpy_exec (tree.interface.new_socket / .new_panel).'
+    )
+    COLUMNS: tuple[Column, ...] = (
+        Column('tree', 'TEXT', hint='Owning node-group name (node_trees.owner_name).'),
+        Column('identifier', 'TEXT', hint='Stable interface-item identifier from Blender.'),
+        Column('name', 'TEXT', hint='Display name of the socket / panel.'),
+        Column('item_type', 'TEXT', hint='SOCKET or PANEL.'),
+        Column('in_out', 'TEXT', hint='INPUT / OUTPUT for SOCKETs; NULL for PANELs.'),
+        Column(
+            'socket_type',
+            'TEXT',
+            hint='Socket RNA id (NodeSocketFloat, ...) for SOCKETs; NULL for PANELs.',
+        ),
+        Column('parent_panel', 'TEXT', hint='Containing panel name; NULL when at the root.'),
+        Column('description', 'TEXT', hint="Item tooltip; '' when unset."),
+        Column('index', 'INTEGER', hint='Stable index reported by Blender; quote in SQL.'),
+        Column(
+            'default_value_json',
+            'TEXT',
+            hint='JSON-encoded default for SOCKETs; NULL for PANELs or non-defaultable sockets.',
+        ),
+    )
+    RELATED: tuple[str, ...] = ('node_trees', 'nodes', 'node_inputs', 'node_outputs')
     schema = (
         'CREATE TABLE node_tree_interface('
         'tree TEXT, '
