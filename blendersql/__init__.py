@@ -20,16 +20,36 @@ from __future__ import annotations
 import os
 
 _AUTOSTART_TRUTHY = frozenset({'1', 'true', 'yes', 'on'})
-_AUTOSTART_FALSY = frozenset({'0', 'false', 'no', 'off', ''})
+_AUTOSTART_FALSY = frozenset({'0', 'false', 'no', 'off'})
 
 
 def _resolve_listen_config(prefs: object) -> tuple[str, int, bool]:
-    """Layer BLENDERSQL_{BIND,PORT,AUTOSTART} env vars over the saved prefs."""
-    bind = os.environ.get('BLENDERSQL_BIND') or prefs.bind  # type: ignore[attr-defined]
+    """Layer BLENDERSQL_{BIND,PORT,AUTOSTART} env vars over the saved prefs.
+
+    All three vars treat empty-string-after-strip as "unset, use prefs", so
+    `BLENDERSQL_PORT=''` and `BLENDERSQL_AUTOSTART=''` and
+    `BLENDERSQL_BIND=''` all fall back consistently. `BLENDERSQL_PORT` is
+    bounds-checked to a valid TCP port (1..65535); out-of-range or non-
+    integer values raise `ValueError`. Hosts in `BLENDERSQL_BIND` aren't
+    DNS-resolved — too expensive at register time — only whitespace-stripped
+    and required non-empty after the strip.
+    """
+    bind_env = os.environ.get('BLENDERSQL_BIND')
+    bind = bind_env.strip() if bind_env is not None and bind_env.strip() else prefs.bind  # type: ignore[attr-defined]
+
     port_env = os.environ.get('BLENDERSQL_PORT')
-    port = int(port_env) if port_env else int(prefs.port)  # type: ignore[attr-defined]
+    if port_env is not None and port_env.strip():
+        try:
+            port = int(port_env.strip())
+        except ValueError as exc:
+            raise ValueError(f'BLENDERSQL_PORT must be an integer; got {port_env!r}') from exc
+        if not 1 <= port <= 65535:
+            raise ValueError(f'BLENDERSQL_PORT must be in 1..65535; got {port}')
+    else:
+        port = int(prefs.port)  # type: ignore[attr-defined]
+
     autostart_env = os.environ.get('BLENDERSQL_AUTOSTART')
-    if autostart_env is None:
+    if autostart_env is None or not autostart_env.strip():
         autostart = bool(prefs.autostart)  # type: ignore[attr-defined]
     else:
         lowered = autostart_env.strip().lower()

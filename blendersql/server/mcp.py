@@ -7,6 +7,13 @@ claude code's MCP client needs: `initialize`, `initialized`, `tools/list`,
 `experiments/compare/blendersql_mcp/server.py`, but instead of HTTP self-
 calling `/query` we route directly through the engine (which already
 marshals to Blender's main thread via the bridge).
+
+Note on bpy isolation: this module itself is pure-stdlib (no `bpy` import),
+and the SQL runner is dependency-injected by `http.py` so the dispatcher
+can be unit-tested without booting Blender. The sibling `http.py` and the
+`SqlRunner` it injects DO touch `bpy` (via the bridge). The package's
+`__init__.py` re-exports from `http`, so `import blendersql.server` pulls
+`bpy` in — import `blendersql.server.mcp` directly to keep that isolation.
 """
 
 from __future__ import annotations
@@ -15,6 +22,8 @@ import json
 import re
 from collections.abc import Callable
 from typing import Any
+
+from ..sql.functions.registry import functions_registry, functions_version
 
 # JSON-RPC 2.0 error codes
 _PARSE_ERROR = -32700
@@ -36,8 +45,56 @@ _INSTRUCTIONS = (
     'writing real queries.'
 )
 
-_TABLE_NAME_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+# `\Z` rather than `$` so a trailing newline can't sneak past `match()`.
+_TABLE_NAME_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*\Z')
 _READ_PREFIXES = ('SELECT', 'WITH', 'PRAGMA', 'EXPLAIN')
+
+# Cache the snapshot of side-effecting function names keyed by the registry
+# version. `functions_version()` bumps on every register_function call, so
+# this auto-invalidates when the engine reinitialises.
+_SIDE_EFFECT_CACHE: tuple[int, tuple[str, ...], re.Pattern[str] | None] = (-1, (), None)
+
+
+def _side_effect_pattern() -> tuple[tuple[str, ...], re.Pattern[str] | None]:
+    """Return (names, regex) for all functions registered with side_effects=True.
+
+    Cached against `functions_version()` so the scan cost is one-shot per
+    registration epoch. Returns `(names, None)` when nothing is registered
+    yet (the regex would be invalid with an empty alternation).
+    """
+    global _SIDE_EFFECT_CACHE
+    version = functions_version()
+    if _SIDE_EFFECT_CACHE[0] == version:
+        return _SIDE_EFFECT_CACHE[1], _SIDE_EFFECT_CACHE[2]
+    names = tuple(sorted(name for name, meta in functions_registry().items() if meta.side_effects))
+    pattern: re.Pattern[str] | None = None
+    if names:
+        # `\b<name>\(` is a coarse syntactic match — it false-positives inside
+        # SQL string literals (e.g. `SELECT '... save( ...'`). We accept the
+        # over-rejection for v1: it errs on the safe side for a read-only
+        # contract. A proper SQL tokenizer is out of scope for this fix.
+        pattern = re.compile(r'\b(?:' + '|'.join(re.escape(n) for n in names) + r')\s*\(')
+    _SIDE_EFFECT_CACHE = (version, names, pattern)
+    return names, pattern
+
+
+def _find_side_effect_call(sql: str) -> str | None:
+    """Return the first side-effecting function name called in `sql`, or None.
+
+    Caveat: a coarse regex scan — `save(` inside a string literal is a
+    false positive. We accept the over-rejection for `query()`'s read-only
+    contract (safer to reject than to allow a write through). Nested calls
+    like `SELECT length(save())` are caught because `save(` still appears.
+    """
+    _, pattern = _side_effect_pattern()
+    if pattern is None:
+        return None
+    match = pattern.search(sql)
+    if match is None:
+        return None
+    # Strip the trailing `(` plus any whitespace the regex tolerated.
+    return match.group(0).rstrip('(').rstrip()
+
 
 # Type alias for the SQL runner injected from http.py — keeps this module
 # free of any bpy / engine import so it stays testable in isolation.
@@ -193,8 +250,13 @@ def _rpc_result(req_id: Any, result: dict[str, Any]) -> dict[str, Any]:
 
 
 def _tool_text(payload: dict[str, Any], *, is_error: bool = False) -> dict[str, Any]:
+    # allow_nan=False forces stdlib to raise on NaN/Infinity rather than emit
+    # the JS-only `NaN` / `Infinity` literals that aren't valid JSON. The
+    # engine's `_jsonify` already coerces non-finite floats to None, so this
+    # is belt-and-braces — if something slips through we want a loud
+    # ValueError, not silent corruption on the wire.
     return {
-        'content': [{'type': 'text', 'text': json.dumps(payload)}],
+        'content': [{'type': 'text', 'text': json.dumps(payload, allow_nan=False)}],
         'isError': is_error,
     }
 
@@ -215,6 +277,14 @@ def _tool_query(args: dict[str, Any], run_sql: SqlRunner) -> dict[str, Any]:
                     'query() is read-only. Use execute() for writes or '
                     'function calls with side effects.'
                 ),
+            }
+        )
+    side_effect = _find_side_effect_call(sql)
+    if side_effect is not None:
+        return _tool_text(
+            {
+                'ok': False,
+                'error': (f'query() is read-only; {side_effect} has side effects, use execute()'),
             }
         )
     return _tool_text(run_sql(sql))
@@ -399,4 +469,4 @@ def _handle_tools_call(params: dict[str, Any], run_sql: SqlRunner) -> dict[str, 
 
 
 def _encode(payload: dict[str, Any]) -> bytes:
-    return json.dumps(payload).encode('utf-8')
+    return json.dumps(payload, allow_nan=False).encode('utf-8')

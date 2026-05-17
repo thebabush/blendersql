@@ -17,18 +17,33 @@ from typing import Any
 import pytest
 
 
-def _mcp_post(base_url: str, body: bytes, timeout: float = 30.0) -> tuple[int, bytes]:
+def _mcp_post(
+    base_url: str,
+    body: bytes,
+    timeout: float = 30.0,
+    content_type: str | None = 'application/json',
+) -> tuple[int, bytes]:
+    headers = {'Content-Type': content_type} if content_type is not None else {}
     req = urllib.request.Request(
         base_url + '/mcp',
         data=body,
         method='POST',
-        headers={'Content-Type': 'application/json'},
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
+
+
+def _mcp_get(base_url: str, timeout: float = 5.0) -> int:
+    req = urllib.request.Request(base_url + '/mcp', method='GET')
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status
+    except urllib.error.HTTPError as exc:
+        return exc.code
 
 
 def _rpc(
@@ -161,6 +176,71 @@ def test_initialized_notification_no_response_body(blender_server: dict[str, Any
     status, raw = _mcp_post(blender_server['base_url'], body)
     assert status == 202
     assert raw == b''
+
+
+def test_get_mcp_returns_405_or_404(blender_server: dict[str, Any]) -> None:
+    """GET /mcp isn't a JSON-RPC verb — the handler emits 404 (the default
+    `do_GET` else-branch)."""
+    status = _mcp_get(blender_server['base_url'])
+    assert status in (404, 405)
+
+
+def test_post_mcp_with_text_plain_returns_415(blender_server: dict[str, Any]) -> None:
+    """Content-Type must be application/json on /mcp. /query keeps raw-body
+    semantics so this enforcement is local to /mcp."""
+    body = json.dumps({'jsonrpc': '2.0', 'method': 'ping', 'id': 1}).encode('utf-8')
+    status, _ = _mcp_post(blender_server['base_url'], body, content_type='text/plain')
+    assert status == 415
+
+
+def test_post_mcp_with_charset_param_accepted(blender_server: dict[str, Any]) -> None:
+    """`application/json; charset=utf-8` should match — parameters ignored."""
+    body = json.dumps({'jsonrpc': '2.0', 'method': 'ping', 'id': 1}).encode('utf-8')
+    status, raw = _mcp_post(
+        blender_server['base_url'], body, content_type='application/json; charset=utf-8'
+    )
+    assert status == 200
+    assert json.loads(raw.decode('utf-8'))['result'] == {}
+
+
+def test_jsonrpc_batch_rejected(blender_server: dict[str, Any]) -> None:
+    """We don't implement JSON-RPC batches (spec-optional). A top-level JSON
+    array must come back as -32600 invalid request."""
+    body = json.dumps([{'jsonrpc': '2.0', 'method': 'ping', 'id': 1}]).encode('utf-8')
+    _, raw = _mcp_post(blender_server['base_url'], body)
+    reply = json.loads(raw.decode('utf-8'))
+    assert reply['error']['code'] == -32600
+
+
+def test_tools_call_query_null_sql_returns_structured_error(blender_server: dict[str, Any]) -> None:
+    """`sql=null` is a tool-level argument validation failure surfaced as a
+    structured ok=false envelope (not a JSON-RPC error)."""
+    reply = _tool_call(blender_server['base_url'], 'query', {'sql': None})
+    assert reply['result']['isError'] is False
+    payload = json.loads(_content_text(reply))
+    assert payload['ok'] is False
+    assert 'sql' in payload['error']
+
+
+def test_tools_call_query_rejects_side_effect_function(blender_server: dict[str, Any]) -> None:
+    """`SELECT save()` is a SELECT but calls a side-effecting function — the
+    read-only contract must reject it with a structured envelope, not run
+    save() and silently write a file."""
+    reply = _tool_call(blender_server['base_url'], 'query', {'sql': "SELECT save('/tmp/x.blend')"})
+    assert reply['result']['isError'] is False
+    payload = json.loads(_content_text(reply))
+    assert payload['ok'] is False
+    assert 'save' in payload['error']
+    assert 'side effect' in payload['error']
+
+
+def test_tools_call_query_rejects_nested_side_effect(blender_server: dict[str, Any]) -> None:
+    """Nested side-effecting calls are caught — the scan is `\\b<name>\\(` so
+    it matches even inside another function's args."""
+    reply = _tool_call(blender_server['base_url'], 'query', {'sql': "SELECT length(bpy_exec('1'))"})
+    payload = json.loads(_content_text(reply))
+    assert payload['ok'] is False
+    assert 'bpy_exec' in payload['error']
 
 
 @pytest.mark.parametrize('method', ['initialize', 'tools/list', 'ping'])

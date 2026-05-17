@@ -8,6 +8,7 @@ job of bridge.run_on_main.
 
 from __future__ import annotations
 
+import math
 import time
 from typing import Any
 
@@ -78,7 +79,22 @@ def _ms_since(start: float) -> float:
 
 
 def _jsonify(row: tuple) -> list[Any]:
-    return [v.hex() if isinstance(v, (bytes, bytearray)) else v for v in row]
+    """Coerce one cursor row into JSON-safe Python values.
+
+    - bytes/bytearray → hex string (no binary on the wire).
+    - non-finite floats (NaN, +Inf, -Inf) → None. `json.dumps(allow_nan=True)`
+      would happily emit literal `NaN` / `Infinity`, which conforming MCP /
+      JSON clients reject. Coercing here keeps the wire valid JSON.
+    """
+    out: list[Any] = []
+    for v in row:
+        if isinstance(v, (bytes, bytearray)):
+            out.append(v.hex())
+        elif isinstance(v, float) and not math.isfinite(v):
+            out.append(None)
+        else:
+            out.append(v)
+    return out
 
 
 def _peek_columns(cursor: apsw.Cursor) -> list[str]:

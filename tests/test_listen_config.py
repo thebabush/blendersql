@@ -46,6 +46,45 @@ def test_port_env_bad_value_raises(monkeypatch: pytest.MonkeyPatch) -> None:
         _resolve_listen_config(_FakePrefs())
 
 
+def test_port_env_empty_falls_back_to_prefs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Empty-string env vars should behave the same as unset — fall back to
+    prefs. Previously port='' bypassed the int() conversion (falsy) but
+    BIND='' overwrote prefs.bind with '' (truthy `or`), an inconsistency."""
+    monkeypatch.setenv('BLENDERSQL_PORT', '')
+    _, port, _ = _resolve_listen_config(_FakePrefs(port=8174))
+    assert port == 8174
+
+
+def test_port_env_negative_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('BLENDERSQL_PORT', '-1')
+    with pytest.raises(ValueError):
+        _resolve_listen_config(_FakePrefs())
+
+
+def test_port_env_too_high_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('BLENDERSQL_PORT', '99999')
+    with pytest.raises(ValueError):
+        _resolve_listen_config(_FakePrefs())
+
+
+def test_port_env_whitespace_trimmed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('BLENDERSQL_PORT', '  8200  ')
+    _, port, _ = _resolve_listen_config(_FakePrefs(port=8174))
+    assert port == 8200
+
+
+def test_bind_env_empty_falls_back_to_prefs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('BLENDERSQL_BIND', '')
+    bind, _, _ = _resolve_listen_config(_FakePrefs(bind='127.0.0.1'))
+    assert bind == '127.0.0.1'
+
+
+def test_bind_env_whitespace_only_falls_back_to_prefs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('BLENDERSQL_BIND', '   ')
+    bind, _, _ = _resolve_listen_config(_FakePrefs(bind='127.0.0.1'))
+    assert bind == '127.0.0.1'
+
+
 @pytest.mark.parametrize('value', ['1', 'true', 'TRUE', 'yes', 'on'])
 def test_autostart_truthy_values(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
     monkeypatch.setenv('BLENDERSQL_AUTOSTART', value)
@@ -53,11 +92,20 @@ def test_autostart_truthy_values(monkeypatch: pytest.MonkeyPatch, value: str) ->
     assert autostart is True
 
 
-@pytest.mark.parametrize('value', ['0', 'false', 'NO', 'off', ''])
+@pytest.mark.parametrize('value', ['0', 'false', 'NO', 'off'])
 def test_autostart_falsy_values(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
     monkeypatch.setenv('BLENDERSQL_AUTOSTART', value)
     _, _, autostart = _resolve_listen_config(_FakePrefs(autostart=True))
     assert autostart is False
+
+
+def test_autostart_empty_falls_back_to_prefs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Empty-string AUTOSTART should be treated as unset — consistent with
+    BIND and PORT. Previously this was in _AUTOSTART_FALSY which forced
+    autostart=False even when the pref said True."""
+    monkeypatch.setenv('BLENDERSQL_AUTOSTART', '')
+    _, _, autostart = _resolve_listen_config(_FakePrefs(autostart=True))
+    assert autostart is True
 
 
 def test_autostart_unknown_value_raises(monkeypatch: pytest.MonkeyPatch) -> None:

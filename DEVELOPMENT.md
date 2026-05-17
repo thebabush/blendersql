@@ -109,11 +109,23 @@ curl http://127.0.0.1:8174/status
 curl -X POST http://127.0.0.1:8174/query -d "SELECT name FROM objects LIMIT 5"
 ```
 
-Endpoints: `POST /query` (raw SQL in the body → JSON), `GET /status`, `GET /help`, `POST /shutdown`. Run separate instances on different ports to work with two files at once.
+Endpoints: `POST /query` (raw SQL in the body → JSON), `POST /mcp` (JSON-RPC 2.0 Model Context Protocol — six tools, see [README.md#connect-via-mcp](README.md#connect-via-mcp)), `GET /status`, `GET /help`, `POST /shutdown`. Run separate instances on different ports to work with two files at once.
 
 The query response is `{"ok": true, "columns": [...], "rows": [...], "row_count": N, "duration_ms": X}` on success, or `{"ok": false, "error": "...", "error_type": "...", "duration_ms": X}` on a SQL error.
 
 > `bpy_exec` runs arbitrary Python and the server has no auth, so keep `bind` on `127.0.0.1`. Token auth + an opt-in `allow_exec` flag are the obvious next step before exposing it any wider.
+
+### Headless multi-instance
+
+When launching several Blender processes against different ports — so an agent can address each one separately — three env vars override the saved prefs at register time without touching the .blend or the Blender user-config:
+
+| Var | Meaning |
+|-----|---------|
+| `BLENDERSQL_BIND` | Bind address (default: saved pref, default `127.0.0.1`). Empty / whitespace-only falls back to the pref. |
+| `BLENDERSQL_PORT` | TCP port 1..65535 (default: saved pref, default `8174`). Empty falls back; out-of-range or non-integer raises `ValueError`. |
+| `BLENDERSQL_AUTOSTART` | `1`/`true`/`yes`/`on` or `0`/`false`/`no`/`off` (case-insensitive) to force on/off (default: saved pref). Empty falls back. |
+
+The resolver (`blendersql._resolve_listen_config`) is pure stdlib and does no DNS or socket probing — bind validity is the caller's problem at server start.
 
 ## The CLI
 
@@ -171,7 +183,7 @@ Requires Blender 5.1+ on `PATH`. `make build` produces one zip per platform (`bl
 ## Development workflow
 
 ```bash
-make test       # uv run pytest tests/  — headless-Blender harness, 238 tests
+make test       # uv run pytest tests/  — headless-Blender harness, 350+ tests
 make lint       # ruff check + ruff format --check
 make typecheck  # mypy
 ```

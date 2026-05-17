@@ -21,6 +21,7 @@ blendersql/wheels/*.whl
 .DS_Store
 .vscode/
 .idea/
+.claude/
 
 # Blender backups inside the repo (if any)
 *.blend1

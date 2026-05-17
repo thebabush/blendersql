@@ -11,6 +11,7 @@ import queue
 import threading
 from collections.abc import Callable
 from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
 import bpy
@@ -42,12 +43,24 @@ def run_on_main[T](fn: Callable[[], T], timeout: float | None = 30.0) -> T:
     """Run *fn* on the main thread and return its result. Re-raises exceptions.
 
     If called from the main thread, runs *fn* synchronously.
+
+    On TimeoutError we cancel the future so the drain loop short-circuits
+    when it dequeues the work later — otherwise queued-but-not-yet-running
+    callables run after the caller has already given up, mutating Blender
+    state without anyone listening for the result. If `fn` is already
+    executing on the main thread, `fut.cancel()` returns False and the run
+    completes; that in-flight case is unavoidable and harmless because the
+    bridge holds no other state past `set_result`/`set_exception`.
     """
     if threading.current_thread() is threading.main_thread():
         return fn()
     fut: Future[T] = Future()
     _pending.put((fn, fut))
-    return fut.result(timeout=timeout)
+    try:
+        return fut.result(timeout=timeout)
+    except FutureTimeoutError:
+        fut.cancel()
+        raise
 
 
 def install() -> None:

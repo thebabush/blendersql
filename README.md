@@ -84,6 +84,23 @@ From there, just talk to it — see [What you can do with it](#what-you-can-do-w
 
 Prefer to keep Blender headless? The assistant can also launch Blender in the background for you and work on a `.blend` without ever opening the UI — just ask. (That path uses the `blendersql` command-line tool; see [DEVELOPMENT.md](DEVELOPMENT.md#the-cli).)
 
+## Connect via MCP
+
+If your assistant supports the Model Context Protocol over HTTP, point it at the add-on's built-in `/mcp` endpoint — no separate process, no stdio bridge:
+
+```json
+{ "mcpServers": { "blendersql": { "type": "http", "url": "http://127.0.0.1:8174/mcp" } } }
+```
+
+(Drop this into `.mcp.json` for Claude Code, or the equivalent for your client.) Six tools are exposed:
+
+- `query` — run a read-only SQL statement (SELECT/WITH/PRAGMA/EXPLAIN).
+- `execute` — run any SQL, including writes and side-effecting functions.
+- `list_tables` / `describe_table` — discover the vtables and their columns.
+- `list_functions` / `describe_function` — discover the SQL scalar functions.
+
+The `/blendersql:*` skills already use this path; you only need the snippet above if you're wiring a non-Claude client.
+
 ## Under the hood
 
 BlenderSQL exposes Blender's data as ~78 live SQL tables plus a set of editing functions, served over a small localhost HTTP endpoint, with a Python escape hatch for anything that isn't a query. If you want the technical picture — architecture, the full table and function reference, the HTTP API, the command-line tool, building from source, contributing — see **[DEVELOPMENT.md](DEVELOPMENT.md)**.

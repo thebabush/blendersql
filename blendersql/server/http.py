@@ -39,9 +39,45 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:  # silence stderr noise
         return
 
-    def _read_body(self) -> str:
-        length = int(self.headers.get('Content-Length', '0'))
+    def _content_length(self) -> int | None:
+        """Parse Content-Length; return None on garbage (caller should 400).
+
+        Missing header defaults to 0 (some clients omit it for empty bodies).
+        Returns None on non-integer values so the caller can emit 400 instead
+        of crashing on a ValueError into the BaseHTTPRequestHandler default
+        500 page.
+        """
+        raw = self.headers.get('Content-Length')
+        if raw is None or raw == '':
+            return 0
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+
+    def _bad_content_length(self) -> None:
+        self.send_response(400)
+        self.send_header('Content-Type', 'text/plain; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(b'Invalid Content-Length')
+
+    def _read_body_str(self) -> str | None:
+        """Read the body as text. Returns None on bad Content-Length (and
+        emits a 400 inline so callers can early-return)."""
+        length = self._content_length()
+        if length is None:
+            self._bad_content_length()
+            return None
         return self.rfile.read(length).decode('utf-8') if length else ''
+
+    def _read_body_bytes(self) -> bytes | None:
+        """Read the body as bytes. Returns None on bad Content-Length (and
+        emits a 400 inline so callers can early-return)."""
+        length = self._content_length()
+        if length is None:
+            self._bad_content_length()
+            return None
+        return self.rfile.read(length) if length else b''
 
     def do_GET(self) -> None:
         if self.path == '/status':
@@ -65,7 +101,10 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         if self.path == '/query':
-            sql = self._read_body().strip()
+            body = self._read_body_str()
+            if body is None:
+                return
+            sql = body.strip()
             if not sql:
                 _json_response(self, 400, {'ok': False, 'error': 'empty_query'})
                 return
@@ -78,12 +117,29 @@ class _Handler(BaseHTTPRequestHandler):
             status = 200 if result.ok else 400
             _json_response(self, status, result.to_dict())
         elif self.path == '/mcp':
-            length = int(self.headers.get('Content-Length', '0'))
-            raw = self.rfile.read(length) if length else b''
+            # Content-Type: present must be application/json (parameters like
+            # `charset=utf-8` are ignored). Missing header is tolerated — some
+            # MCP clients omit it. /query keeps raw-body semantics; only /mcp
+            # enforces this.
+            ctype = self.headers.get('Content-Type')
+            if ctype is not None:
+                bare = ctype.split(';', 1)[0].strip().lower()
+                if bare and bare != 'application/json':
+                    self.send_response(415)
+                    self.send_header('Content-Type', 'text/plain; charset=utf-8')
+                    self.end_headers()
+                    self.wfile.write(b'Unsupported Media Type; expected application/json')
+                    return
+            raw = self._read_body_bytes()
+            if raw is None:
+                return
             reply = mcp.dispatch(raw, _run_sql)
             if reply is None:
-                # Notification: no response body. 202 Accepted per JSON-RPC convention.
+                # Notification: no response body. 202 Accepted per JSON-RPC
+                # convention. Content-Type still set so picky clients are
+                # happy even though the body is empty.
                 self.send_response(202)
+                self.send_header('Content-Type', 'application/json')
                 self.send_header('Content-Length', '0')
                 self.end_headers()
                 return
