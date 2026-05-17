@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  BLENDER_VERSION: '5.1.1'
+  BLENDER_DIR: blender-5.1.1-linux-x64
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -14,9 +18,27 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: '3.13'
-      # regen-skills-check boots Blender and queries a built fixture; CI has
-      # neither so we skip it here. The same check runs locally via the
-      # pre-commit hook on every commit that touches sql/vtables/, sql/functions/,
-      # scripts/regen_skills.py, or skills/*.md, and again via the pytest guard
-      # (tests/test_skill_regen.py) wherever the test suite runs with Blender.
+      # regen-skills-check needs a built fixture + Blender; both live on the
+      # `test` job below. Skip it here so the lint pass stays fast.
       - run: SKIP=regen-skills-check uv run pre-commit run --all-files
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.13'
+      - name: Install Blender
+        run: |
+          url="https://download.blender.org/release/Blender5.1/${BLENDER_DIR}.tar.xz"
+          curl -fsSL "$url" -o "$RUNNER_TEMP/blender.tar.xz"
+          tar -xf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/${BLENDER_DIR}" >> "$GITHUB_PATH"
+      - name: Fetch wheels
+        run: uv run python scripts/fetch_wheels.py
+      # conftest builds tests/fixtures/test_scene.blend on first invocation;
+      # `tests/test_skill_regen.py` then drives `regen_skills.py --check` so
+      # the marker blocks are guarded here too.
+      - name: Run tests
+        run: uv run pytest tests/
