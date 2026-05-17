@@ -39,7 +39,7 @@ check_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 no_implicit_optional = true
-exclude = ['reference/', 'build/', 'dist/', '\.venv/', 'experiments/', 'tests/']
+exclude = ['reference/', 'build/', 'dist/', '\.venv/', 'experiments/']
 
 [tool.ruff]
 line-length = 100

@@ -20,7 +20,8 @@ typecheck:
 	uv run mypy .
 
 clean:
-	rm -rf dist/ __pycache__ .pytest_cache .ruff_cache
+	rm -rf dist/ .pytest_cache .ruff_cache .mypy_cache
+	find . -name __pycache__ -type d -prune -exec rm -rf {} +
 
 install-dev:
 	mkdir -p "$(dir $(DEV_LINK))"

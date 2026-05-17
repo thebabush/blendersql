@@ -1,9 +1,9 @@
 """In-Blender bootstrap for the standalone CLI.
 
-Invoked by cli/blendersql.py via:
+Invoked by blendersql/cli/blendersql.py via:
 
     blender --background --factory-startup --python-use-system-env \
-        <file.blend> --python cli/runner.py
+        <file.blend> --python blendersql/cli/runner.py
 
 Environment:
     BLENDERSQL_CLI_PORT — port the HTTP server binds to (required)

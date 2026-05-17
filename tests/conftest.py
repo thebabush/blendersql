@@ -13,7 +13,6 @@ import contextlib
 import json
 import os
 import subprocess
-import sys
 import time
 import urllib.error
 import urllib.request
@@ -23,21 +22,19 @@ from typing import Any
 
 import pytest
 
+from blendersql.cli._blender import find_blender as _find_blender
+from blendersql.cli._blender import pick_free_port as _pick_port
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
 FIXTURE_BLEND = TESTS_DIR / 'fixtures' / 'test_scene.blend'
 BUILD_FIXTURE_PY = TESTS_DIR / 'fixtures' / 'build_fixture.py'
-RUNNER_PY = TESTS_DIR / 'runner.py'
 SERVER_INFO = TESTS_DIR / '.server_info.json'
 # Test-local extensions root so `make test` doesn't depend on the dev symlink
 # at ~/Library/Application Support/Blender/5.1/extensions/. Crucially, when
 # this file lives inside a git worktree it points Blender at the worktree's
 # code instead of whatever the user's live install symlink targets.
 EXTENSIONS_ROOT = TESTS_DIR / '.blender_user_extensions'
-
-sys.path.insert(0, str(REPO_ROOT))
-from blendersql.cli._blender import find_blender as _find_blender  # noqa: E402
-from blendersql.cli._blender import pick_free_port as _pick_port  # noqa: E402
 
 _READY_TIMEOUT_S = 60.0
 _SHUTDOWN_TIMEOUT_S = 5.0
@@ -154,7 +151,7 @@ def blender_server() -> Iterator[dict[str, Any]]:
         '--python-use-system-env',
         str(FIXTURE_BLEND),
         '--python',
-        str(RUNNER_PY),
+        str(TESTS_DIR / 'runner.py'),
     ]
     proc = subprocess.Popen(
         cmd,

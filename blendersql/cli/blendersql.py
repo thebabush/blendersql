@@ -34,13 +34,13 @@ except ImportError:  # pragma: no cover - platform dependent
     _readline = None
 
 _HERE = Path(__file__).resolve().parent
-_REPO_ROOT = _HERE.parent
+_ADDON_ROOT = _HERE.parent
 _RUNNER_PY = _HERE / 'runner.py'
-_MANIFEST = _REPO_ROOT / 'blender_manifest.toml'
+_MANIFEST = _ADDON_ROOT / 'blender_manifest.toml'
 
 if __package__:
     from ._blender import find_blender, pick_free_port, port_is_free
-else:  # invoked as a script: `python cli/blendersql.py`
+else:  # invoked as a script: `python blendersql/cli/blendersql.py`
     sys.path.insert(0, str(_HERE))
     from _blender import find_blender, pick_free_port, port_is_free  # type: ignore[no-redef]
 

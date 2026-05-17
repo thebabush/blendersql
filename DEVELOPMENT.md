@@ -176,7 +176,9 @@ make lint       # ruff check + ruff format --check
 make typecheck  # mypy
 ```
 
-`uv` manages the dev environment. `pre-commit` runs ruff (format + `--fix`) and mypy on every commit; CI runs `pre-commit run --all-files`. The test suite boots a real headless Blender subprocess once per session and drives it over HTTP, so Blender 5.1+ must be on `PATH`. Note `tests/pytest.ini` anchors the rootdir at `tests/` — run `pytest tests/`, not `pytest` from the repo root (the root `__init__.py` is the add-on entry point and imports `bpy`).
+`uv` manages the dev environment. `pre-commit` runs ruff (format + `--fix`) and mypy on every commit; CI runs `pre-commit run --all-files`. The test suite boots a real headless Blender subprocess once per session and drives it over HTTP, so Blender 5.1+ must be on `PATH`. Note `tests/pytest.ini` anchors the rootdir at `tests/` — run `pytest tests/`, not `pytest` from the repo root (the addon package `blendersql/` lazy-imports `bpy` inside `register()`/`unregister()`, so collection-time imports stay safe, but anchoring at `tests/` keeps pytest from walking into the addon tree at all).
+
+After pulling a refactor that moves the addon into `blendersql/`, re-run `make install-dev` so the dev-install symlink at `~/Library/.../user_default/blendersql` points at the new package path instead of the old repo-root layout.
 
 ## Releasing
 

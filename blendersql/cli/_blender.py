@@ -1,6 +1,6 @@
 """Shared helpers for locating Blender and picking a free TCP port.
 
-Imported by both the CLI (cli/blendersql.py) and the pytest harness
+Imported by both the CLI (blendersql/cli/blendersql.py) and the pytest harness
 (tests/conftest.py) so the Blender-location logic lives in exactly one place.
 """
 

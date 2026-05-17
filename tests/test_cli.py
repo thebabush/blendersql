@@ -18,13 +18,10 @@ from pathlib import Path
 
 import pytest
 
+from blendersql.cli._blender import find_blender
+from tests.fixtures.expected import EXPECTED
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(REPO_ROOT))
-
-from fixtures.expected import EXPECTED  # noqa: E402
-
-from blendersql.cli._blender import find_blender  # noqa: E402
 
 if find_blender() is None:
     pytest.skip('blender executable not found', allow_module_level=True)

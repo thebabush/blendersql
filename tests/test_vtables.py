@@ -9,14 +9,9 @@ so the two never drift silently.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from fixtures.expected import EXPECTED
+from tests.fixtures.expected import EXPECTED
 
 # bsql_tables / bsql_columns / bsql_related are excluded from EXPECTED because
 # their counts track the live registry — covered by dedicated dynamic tests
@@ -941,13 +936,16 @@ def test_bind_is_idempotent() -> None:
     # active — the same call path register_all() uses, but exercising _bind
     # in isolation is the targeted Bug-3 surface. The full register_all()
     # idempotency follows by induction once _bind is.
+    from typing import cast
+
     import apsw
 
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from blendersql.sql.engine import Engine
     from blendersql.sql.vtables import _REGISTRY, _bind
     from blendersql.sql.vtables._meta import Column as VColumn
+    from blendersql.sql.vtables._meta import VTableMeta
 
-    _COLUMNS_FIXTURE = (VColumn('x', 'INTEGER'),)
+    _COLUMNS_FIXTURE: tuple[VColumn, ...] = (VColumn('x', 'INTEGER'),)
 
     class _MockSource:
         DESCRIPTION = 'mock'
@@ -999,10 +997,11 @@ def test_bind_is_idempotent() -> None:
     eng = _Eng()
     try:
         # _bind is typed against the real Engine class; _Eng is a minimal
-        # duck-typed stand-in (only `.conn` is touched).
-        _bind(eng, 'mock_idemp', _MockSource())
+        # duck-typed stand-in (only `.conn` is touched). Cast through Engine
+        # / VTableMeta so mypy stays happy without dragging in a real Engine.
+        _bind(cast(Engine, eng), 'mock_idemp', cast(VTableMeta, _MockSource()))
         # Second call must not raise — that's the whole bug.
-        _bind(eng, 'mock_idemp', _MockSource())
+        _bind(cast(Engine, eng), 'mock_idemp', cast(VTableMeta, _MockSource()))
     finally:
         _REGISTRY.pop('mock_idemp', None)
         eng.conn.close()
