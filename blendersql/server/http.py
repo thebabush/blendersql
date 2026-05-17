@@ -1,6 +1,7 @@
 """HTTP server hosted on a background thread.
 
 POST /query    — execute a SQL query (raw SQL in body), return JSON
+POST /mcp      — Model Context Protocol over JSON-RPC 2.0 (see mcp.py)
 GET  /status   — server status
 GET  /help     — endpoint help
 POST /shutdown — stop the server
@@ -19,6 +20,7 @@ from typing import Any
 from .. import bridge
 from ..sql import engine
 from ..sql.result import QueryResult
+from . import mcp
 
 _server: ThreadingHTTPServer | None = None
 _thread: threading.Thread | None = None
@@ -51,6 +53,7 @@ class _Handler(BaseHTTPRequestHandler):
                 {
                     'endpoints': {
                         'POST /query': 'Execute a SQL query (body: raw SQL).',
+                        'POST /mcp': 'Model Context Protocol over JSON-RPC 2.0.',
                         'GET /status': 'Server status.',
                         'GET /help': 'This message.',
                         'POST /shutdown': 'Stop the server.',
@@ -74,11 +77,42 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             status = 200 if result.ok else 400
             _json_response(self, status, result.to_dict())
+        elif self.path == '/mcp':
+            length = int(self.headers.get('Content-Length', '0'))
+            raw = self.rfile.read(length) if length else b''
+            reply = mcp.dispatch(raw, _run_sql)
+            if reply is None:
+                # Notification: no response body. 202 Accepted per JSON-RPC convention.
+                self.send_response(202)
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+                return
+            status, payload = reply
+            self.send_response(status)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
         elif self.path == '/shutdown':
             _json_response(self, 200, {'status': 'shutting_down'})
             threading.Thread(target=stop, daemon=True).start()
         else:
             _json_response(self, 404, {'error': 'not_found', 'path': self.path})
+
+
+def _run_sql(sql: str) -> dict[str, Any]:
+    """SQL runner injected into the MCP dispatcher.
+
+    Identical execution path to POST /query: bounce onto the main thread
+    through the bridge, then materialize the result envelope. Errors are
+    flattened into the same {ok: false, error, error_type} dict the rest of
+    the wire surface uses, so MCP tool calls never see Python exceptions.
+    """
+    try:
+        result = bridge.run_on_main(lambda: engine.get().execute(sql), timeout=60.0)
+    except Exception as exc:
+        result = QueryResult(ok=False, error=str(exc), error_type=type(exc).__name__)
+    return result.to_dict()
 
 
 def is_running() -> bool:
