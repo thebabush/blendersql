@@ -214,3 +214,19 @@ def pytest_report_header(config: pytest.Config) -> list[str]:
     _ = config
     blender = _find_blender()
     return [f'blender: {blender or "NOT FOUND"}']
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Build the .blend fixture before any test starts.
+
+    The `blender_server` session fixture is what normally builds it, but
+    tests that only run the CLI (e.g. tests/test_cli.py) never request that
+    fixture — on a fresh checkout (where the .blend is gitignored) the file
+    would be missing when those tests run. Building eagerly here means
+    every test sees the fixture, regardless of fixture-dependency order.
+    """
+    _ = session
+    blender = _find_blender()
+    if blender is None:
+        return  # the session fixture will skip with a clear reason
+    _build_fixture(blender)

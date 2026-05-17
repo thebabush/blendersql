@@ -9,8 +9,15 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 
 import pytest
+
+_HEADLESS_LINUX = sys.platform.startswith('linux') and not os.environ.get('DISPLAY')
+_skip_needs_render = pytest.mark.skipif(
+    _HEADLESS_LINUX,
+    reason='bpy.ops.render.render needs a GPU/display; Linux CI runners crash on EEVEE',
+)
 
 
 def _verb(client, sql: str) -> dict:
@@ -367,6 +374,7 @@ def test_verb_logged_to_session_log(client) -> None:
 # --------------------------------------------------------------------------- render_object
 
 
+@_skip_needs_render
 def test_render_object_default_path(client) -> None:
     env = _verb(client, "SELECT render_object('Cube')")
     assert env['ok'], env
@@ -380,6 +388,7 @@ def test_render_object_default_path(client) -> None:
     assert chk['ok'] and chk['rows'][0] == [0, 0]
 
 
+@_skip_needs_render
 def test_render_object_custom_path(client, tmp_path) -> None:
     out = str(tmp_path / 'cube.png')
     env = _verb(client, f"SELECT render_object('Cube', NULL, '{out}')")
