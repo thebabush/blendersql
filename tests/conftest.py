@@ -217,16 +217,25 @@ def pytest_report_header(config: pytest.Config) -> list[str]:
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
-    """Build the .blend fixture before any test starts.
+    """Pre-build the .blend fixture and wire the extension symlink.
 
-    The `blender_server` session fixture is what normally builds it, but
-    tests that only run the CLI (e.g. tests/test_cli.py) never request that
-    fixture — on a fresh checkout (where the .blend is gitignored) the file
-    would be missing when those tests run. Building eagerly here means
-    every test sees the fixture, regardless of fixture-dependency order.
+    The `blender_server` session fixture would do both, but it's only
+    requested by tests that talk to the live server. Tests that spawn
+    their own Blender via the CLI (tests/test_cli.py) never request it,
+    so on a fresh CI checkout (.blend gitignored, no dev extensions
+    symlink) those tests would hit:
+      - .blend file not found
+      - 'blendersql extension not installed'
+
+    Doing it here once at session start means every test sees the
+    fixture + addon regardless of fixture-dependency order.
     """
     _ = session
     blender = _find_blender()
     if blender is None:
-        return  # the session fixture will skip with a clear reason
+        return  # the server fixture will skip with a clear reason
     _build_fixture(blender)
+    _ensure_extension_symlink()
+    # Exported into os.environ so any subprocess invoked by a test
+    # (test_cli's `blendersql ...` calls) inherits the same extensions root.
+    os.environ['BLENDER_USER_EXTENSIONS'] = str(EXTENSIONS_ROOT)
