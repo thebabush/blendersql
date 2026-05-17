@@ -36,8 +36,8 @@ SERVER_INFO = TESTS_DIR / '.server_info.json'
 EXTENSIONS_ROOT = TESTS_DIR / '.blender_user_extensions'
 
 sys.path.insert(0, str(REPO_ROOT))
-from cli._blender import find_blender as _find_blender  # noqa: E402
-from cli._blender import pick_free_port as _pick_port  # noqa: E402
+from blendersql.cli._blender import find_blender as _find_blender  # noqa: E402
+from blendersql.cli._blender import pick_free_port as _pick_port  # noqa: E402
 
 _READY_TIMEOUT_S = 60.0
 _SHUTDOWN_TIMEOUT_S = 5.0
@@ -49,7 +49,8 @@ def _ensure_extension_symlink() -> None:
     Blender's extension loader expects each extension at
     `<extensions-root>/<repo>/<addon-name>/`. We mirror that under
     `tests/.blender_user_extensions/` and let `BLENDER_USER_EXTENSIONS`
-    point Blender at it. The symlink target is REPO_ROOT (which is the
+    point Blender at it. The symlink target is `REPO_ROOT/blendersql`
+    (the addon package dir inside this checkout, which is also the
     git worktree root when running under a worktree), so tests always
     exercise the code in this checkout — not whatever the user's live
     `~/Library/.../user_default/blendersql` happens to point at.
@@ -57,7 +58,7 @@ def _ensure_extension_symlink() -> None:
     user_default = EXTENSIONS_ROOT / 'user_default'
     user_default.mkdir(parents=True, exist_ok=True)
     link = user_default / 'blendersql'
-    target = str(REPO_ROOT)
+    target = str(REPO_ROOT / 'blendersql')
     # Recreate the symlink only if missing or pointing elsewhere — keeps the
     # check fast and avoids racing other test runs.
     if link.is_symlink():

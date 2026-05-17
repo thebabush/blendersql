@@ -29,27 +29,12 @@ network = "Hosts a localhost HTTP server for SQL queries"
 files = "Reads and writes bpy.data when queried"
 
 [build]
+# Paths are relative to this manifest's dir (`blendersql/`). The non-addon
+# repo cruft (tests/, scripts/, pyproject.toml, .git/, …) lives outside this
+# dir now, so only artifacts that can legitimately appear inside the addon
+# during dev need to be excluded.
 paths_exclude_pattern = [
     "__pycache__/",
-    "/.git/",
-    "/.github/",
-    "/.gitignore",
-    "/.gitattributes",
-    "/.venv/",
-    "/tests/",
-    "/cli/",
-    "/reference/",
-    "/scripts/",
-    "/skills/",
-    "/.vscode/",
-    "/pyproject.toml",
-    "/uv.lock",
-    "/.python-version",
-    "/DEVELOPMENT.md",
-    "/Makefile",
-    "/.rrr",
-    "/.pytest_cache/",
-    "/.ruff_cache/",
     "*.blend1",
     "*.blend@",
 ]

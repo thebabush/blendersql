@@ -71,7 +71,7 @@ from pathlib import Path
 from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_CLI = _REPO_ROOT / 'cli' / 'blendersql.py'
+_CLI = _REPO_ROOT / 'blendersql' / 'cli' / 'blendersql.py'
 _FIXTURE = _REPO_ROOT / 'tests' / 'fixtures' / 'test_scene.blend'
 _SKILLS_ROOT = _REPO_ROOT / 'skills' / 'plugins' / 'blendersql' / 'skills'
 

@@ -33,7 +33,7 @@ jobs:
       - name: Build extension
         run: |
           mkdir -p dist
-          blender --command extension build --split-platforms --output-dir dist/
+          (cd blendersql && blender --command extension build --split-platforms --output-dir ../dist/)
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

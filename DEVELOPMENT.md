@@ -191,22 +191,23 @@ make typecheck  # mypy
 ## Repo layout
 
 ```
-__init__.py              add-on entry point — register()/unregister(), autostart
-blender_manifest.toml    Blender extension manifest (wheels, permissions, build excludes)
-preferences.py           add-on preferences (bind / port / autostart)
-operators.py             Start/Stop server operators (UI buttons)
-bridge/                  main-thread marshaling (run_on_main + the timer drain)
-server/http.py           the HTTP server (/query /status /help /shutdown)
-sql/
-  engine.py              the apsw connection; execute() -> QueryResult
-  result.py              QueryResult dataclass (the wire format)
-  vtables/               one module per table group; base.py has the vtable bases
-  functions/             grep, bpy_eval/exec/op; verbs/ has the 25 typed verbs
-cli/                     standalone `blendersql` CLI + the in-Blender runner
-tests/                   headless-Blender pytest harness + fixtures
-skills/                  the Claude/Codex skills plugin (not shipped in the zip)
-scripts/fetch_wheels.py  download apsw wheels, regenerate the manifest's `wheels`
-wheels/                  vendored apsw wheels (only the dev macOS-arm64 one is committed)
+blendersql/                the addon — everything Blender loads
+  __init__.py              add-on entry point — register()/unregister(), autostart
+  blender_manifest.toml    Blender extension manifest (wheels, permissions, build excludes)
+  preferences.py           add-on preferences (bind / port / autostart)
+  operators.py             Start/Stop server operators (UI buttons)
+  bridge/                  main-thread marshaling (run_on_main + the timer drain)
+  server/http.py           the HTTP server (/query /status /help /shutdown)
+  sql/
+    engine.py              the apsw connection; execute() -> QueryResult
+    result.py              QueryResult dataclass (the wire format)
+    vtables/               one module per table group; base.py has the vtable bases
+    functions/             grep, bpy_eval/exec/op; verbs/ has the 25 typed verbs
+  cli/                     standalone `blendersql` CLI + the in-Blender runner
+  wheels/                  vendored apsw wheels (only the dev macOS-arm64 one is committed)
+tests/                     headless-Blender pytest harness + fixtures
+skills/                    the Claude/Codex skills plugin (not shipped in the zip)
+scripts/fetch_wheels.py    download apsw wheels, regenerate the manifest's `wheels`
 ```
 
 ## License

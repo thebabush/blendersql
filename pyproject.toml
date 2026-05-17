@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.scripts]
-blendersql = "cli.blendersql:main"
+blendersql = "blendersql.cli.blendersql:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -20,9 +20,9 @@ build-backend = "hatchling.build"
 package = true
 
 [tool.hatch.build.targets.wheel]
-# The repo root is a Blender addon, not a Python package; only the standalone
-# CLI is installable as a console script.
-packages = ["cli"]
+# `blendersql/` is the Blender addon package; the standalone CLI lives at
+# `blendersql.cli.blendersql:main` and is exposed as a console script.
+packages = ["blendersql"]
 
 [dependency-groups]
 dev = [
@@ -39,18 +39,7 @@ check_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 no_implicit_optional = true
-exclude = ['reference/', 'build/', 'dist/', '\.venv/', 'experiments/']
-
-# The repo root is a Blender addon package, so subpackages get discovered
-# twice: once as `blendersql.<pkg>.*` via the root __init__.py, once as
-# `<pkg>.*` when mypy enters the package directly. The test harness also
-# inserts the repo root on sys.path so test modules import these as
-# `cli.*` / `sql.*` / `scripts.*` directly. Skip the follow-imports on
-# those top-level aliases — everything is still checked via the package
-# walk under `blendersql.*`.
-[[tool.mypy.overrides]]
-module = ['cli', 'cli.*', 'sql', 'sql.*', 'scripts', 'scripts.*', 'tests', 'tests.*']
-follow_imports = 'skip'
+exclude = ['reference/', 'build/', 'dist/', '\.venv/', 'experiments/', 'tests/']
 
 [tool.ruff]
 line-length = 100
@@ -66,8 +55,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 #         (bl_options, etc.) — annotating them ClassVar buys nothing here.
 ignore = ["E501", "RUF012"]
 
-# Note: pytest config lives in tests/pytest.ini, not here, because the repo
-# root contains an __init__.py (the Blender addon entry point). pytest treats
-# any directory with __init__.py as a Package and tries to import it during
-# collection; the addon imports bpy, which is only available inside Blender.
-# Anchoring the rootdir at tests/ via tests/pytest.ini avoids that walk-up.
+# Note: pytest config lives in tests/pytest.ini, not here. The addon package
+# `blendersql/` imports bpy at top level (it's a Blender extension), and bpy
+# only exists inside Blender. Anchoring pytest's rootdir at tests/ via
+# tests/pytest.ini stops collection from walking up and importing the addon.

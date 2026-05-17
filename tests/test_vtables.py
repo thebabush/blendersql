@@ -944,8 +944,8 @@ def test_bind_is_idempotent() -> None:
     import apsw
 
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from sql.vtables import _REGISTRY, _bind
-    from sql.vtables._meta import Column as VColumn
+    from blendersql.sql.vtables import _REGISTRY, _bind
+    from blendersql.sql.vtables._meta import Column as VColumn
 
     _COLUMNS_FIXTURE = (VColumn('x', 'INTEGER'),)
 

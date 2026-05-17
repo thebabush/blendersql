@@ -8,7 +8,7 @@ wheels:
 
 build:
 	mkdir -p dist
-	$(BLENDER) --command extension build --split-platforms --output-dir dist/
+	cd blendersql && $(BLENDER) --command extension build --split-platforms --output-dir ../dist/
 
 test:
 	uv run pytest tests/
@@ -24,4 +24,4 @@ clean:
 
 install-dev:
 	mkdir -p "$(dir $(DEV_LINK))"
-	ln -sfn "$(CURDIR)" "$(DEV_LINK)"
+	ln -sfn "$(CURDIR)/blendersql" "$(DEV_LINK)"

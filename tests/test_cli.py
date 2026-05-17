@@ -24,12 +24,12 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from fixtures.expected import EXPECTED  # noqa: E402
 
-from cli._blender import find_blender  # noqa: E402
+from blendersql.cli._blender import find_blender  # noqa: E402
 
 if find_blender() is None:
     pytest.skip('blender executable not found', allow_module_level=True)
 
-CLI = REPO_ROOT / 'cli' / 'blendersql.py'
+CLI = REPO_ROOT / 'blendersql' / 'cli' / 'blendersql.py'
 FIXTURE = REPO_ROOT / 'tests' / 'fixtures' / 'test_scene.blend'
 _TIMEOUT = 120
 
@@ -45,7 +45,7 @@ def _run_cli(*args: str, **kwargs) -> subprocess.CompletedProcess[str]:
 
 
 def _manifest_version() -> str:
-    for line in (REPO_ROOT / 'blender_manifest.toml').read_text().splitlines():
+    for line in (REPO_ROOT / 'blendersql' / 'blender_manifest.toml').read_text().splitlines():
         line = line.strip()
         if line.startswith('version'):
             return line.partition('=')[2].strip().strip('"').strip("'")

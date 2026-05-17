@@ -34,4 +34,4 @@ repos:
         entry: uv run python scripts/regen_skills.py --check
         language: system
         pass_filenames: false
-        files: '^(sql/vtables/|sql/functions/|scripts/regen_skills\.py|skills/plugins/blendersql/skills/.*\.md$)'
+        files: '^(blendersql/sql/vtables/|blendersql/sql/functions/|scripts/regen_skills\.py|skills/plugins/blendersql/skills/.*\.md$)'

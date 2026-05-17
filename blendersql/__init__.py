@@ -1,12 +1,18 @@
-"""BlenderSQL — SQL interface to bpy.data."""
+"""BlenderSQL — SQL interface to bpy.data.
+
+Submodule imports are deferred into `register()` / `unregister()` so that
+non-Blender callers (the standalone CLI, the test harness) can import
+sibling pure-stdlib modules like `blendersql.cli._blender` without
+triggering the bpy-dependent submodules.
+"""
 
 from __future__ import annotations
 
-from . import bridge, operators, preferences, server
-from .sql import engine
-
 
 def register() -> None:
+    from . import bridge, operators, preferences, server
+    from .sql import engine
+
     preferences.register()
     operators.register()
     bridge.install()
@@ -20,6 +26,9 @@ def register() -> None:
 
 
 def unregister() -> None:
+    from . import bridge, operators, preferences, server
+    from .sql import engine
+
     server.stop()
     bridge.uninstall()
     engine.shutdown()

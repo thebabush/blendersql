@@ -16,8 +16,9 @@ from pathlib import Path
 _APSW_VERSION = '3.53.1.0'
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_WHEELS_DIR = _REPO_ROOT / 'wheels'
-_MANIFEST = _REPO_ROOT / 'blender_manifest.toml'
+_ADDON_DIR = _REPO_ROOT / 'blendersql'
+_WHEELS_DIR = _ADDON_DIR / 'wheels'
+_MANIFEST = _ADDON_DIR / 'blender_manifest.toml'
 
 # Each slot: (label, regex on the wheel filename). Multiple matches -> highest sort wins,
 # which picks the newer manylinux glibc tag (manylinux_2_28 > manylinux2014).
