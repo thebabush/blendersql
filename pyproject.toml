@@ -39,15 +39,17 @@ check_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 no_implicit_optional = true
-exclude = ['reference/', 'build/', 'dist/', '\.venv/']
+exclude = ['reference/', 'build/', 'dist/', '\.venv/', 'experiments/']
 
-# The repo root is a Blender addon package, so `cli/` is discovered as
-# `blendersql.cli.*` during the source walk. The test harness imports it as
-# top-level `cli.*` (after inserting the repo root on sys.path), which would
-# otherwise register the same files under two module names. Tell mypy not to
-# follow that import — `cli/` is still type-checked via the package walk.
+# The repo root is a Blender addon package, so subpackages get discovered
+# twice: once as `blendersql.<pkg>.*` via the root __init__.py, once as
+# `<pkg>.*` when mypy enters the package directly. The test harness also
+# inserts the repo root on sys.path so test modules import these as
+# `cli.*` / `sql.*` / `scripts.*` directly. Skip the follow-imports on
+# those top-level aliases — everything is still checked via the package
+# walk under `blendersql.*`.
 [[tool.mypy.overrides]]
-module = ['cli', 'cli.*']
+module = ['cli', 'cli.*', 'sql', 'sql.*', 'scripts', 'scripts.*', 'tests', 'tests.*']
 follow_imports = 'skip'
 
 [tool.ruff]

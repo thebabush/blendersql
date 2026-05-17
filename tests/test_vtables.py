@@ -1000,9 +1000,9 @@ def test_bind_is_idempotent() -> None:
     try:
         # _bind is typed against the real Engine class; _Eng is a minimal
         # duck-typed stand-in (only `.conn` is touched).
-        _bind(eng, 'mock_idemp', _MockSource())  # type: ignore[arg-type]
+        _bind(eng, 'mock_idemp', _MockSource())
         # Second call must not raise — that's the whole bug.
-        _bind(eng, 'mock_idemp', _MockSource())  # type: ignore[arg-type]
+        _bind(eng, 'mock_idemp', _MockSource())
     finally:
         _REGISTRY.pop('mock_idemp', None)
         eng.conn.close()

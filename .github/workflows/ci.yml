@@ -14,4 +14,9 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: '3.13'
-      - run: uv run pre-commit run --all-files
+      # regen-skills-check boots Blender and queries a built fixture; CI has
+      # neither so we skip it here. The same check runs locally via the
+      # pre-commit hook on every commit that touches sql/vtables/, sql/functions/,
+      # scripts/regen_skills.py, or skills/*.md, and again via the pytest guard
+      # (tests/test_skill_regen.py) wherever the test suite runs with Blender.
+      - run: SKIP=regen-skills-check uv run pre-commit run --all-files
